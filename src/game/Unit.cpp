@@ -10479,6 +10479,8 @@ void Unit::TauntFadeOut(Unit *taunter)
 
     if (m_ThreatManager.isThreatListEmpty())
     {
+        m_fixateTargetGuid.Clear();
+
         AddEvent(new EvadeDelayEvent(*this), EVADE_TIME_DELAY_MIN);
 
         if (m_isCreatureLinkingTrigger)
@@ -10497,6 +10499,19 @@ void Unit::TauntFadeOut(Unit *taunter)
         if (((Creature*)this)->AI())
             ((Creature*)this)->AI()->AttackStart(target);
     }
+}
+
+//======================================================================
+/// if pVictim is given, the npc will fixate onto pVictim, if NULL it will remove current fixation
+void Unit::FixateTarget(Unit* pVictim)
+{
+    if (!pVictim)                                           // Remove Fixation
+        m_fixateTargetGuid.Clear();
+    else if (pVictim->isTargetableForAttack())              // Apply Fixation
+        m_fixateTargetGuid = pVictim->GetObjectGuid();
+
+    // Start attacking the fixated target or the next proper one
+    SelectHostileTarget();
 }
 
 //======================================================================
@@ -10531,12 +10546,26 @@ bool Unit::SelectHostileTarget(bool withEvade)
     Unit* target = NULL;
     Unit* oldTarget = getVictim();
 
-    // First checking if we have some taunt on us
+    // first check if we should fixate a target
+    if (m_fixateTargetGuid)
+    {
+        if (oldTarget && oldTarget->GetObjectGuid() == m_fixateTargetGuid)
+            target = oldTarget;
+        else
+        {
+            Unit* pFixateTarget = GetMap()->GetUnit(m_fixateTargetGuid);
+            if (pFixateTarget && pFixateTarget->isAlive() && !IsSecondChoiceTarget(pFixateTarget, true))
+                target = pFixateTarget;
+        }
+    }
+
+    // then checking if we have some taunt on us
+    if (!target)
     {
         AuraList const& tauntAuras = GetAurasByType(SPELL_AURA_MOD_TAUNT);
         if (!tauntAuras.empty())
         {
-            Unit* caster;
+            Unit* caster = NULL;
 
             // Find first available taunter target
             // Auras are pushed_back, last caster will be on the end
@@ -10554,7 +10583,7 @@ bool Unit::SelectHostileTarget(bool withEvade)
         }
     }
 
-    // No taunt aura or taunt aura caster is dead, standard target selection
+    // No valid fixate target, taunt aura or taunt aura caster is dead, standard target selection
     if (!target && !m_ThreatManager.isThreatListEmpty())
         target = m_ThreatManager.getHostileTarget();
 
@@ -10620,6 +10649,8 @@ bool Unit::SelectHostileTarget(bool withEvade)
         return false;
 
     // enter in evade mode in other case
+    m_fixateTargetGuid.Clear();
+
     AddEvent(new EvadeDelayEvent(*this), EVADE_TIME_DELAY_MIN);
 
     if (m_isCreatureLinkingTrigger)
