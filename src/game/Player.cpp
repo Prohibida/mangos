@@ -599,7 +599,10 @@ Player::~Player ()
     for (int i = 0; i < PLAYER_SLOTS_COUNT; ++i)
     {
         if (m_items[i])
+        {
+            m_items[i]->RemoveFromWorld(true);
             delete m_items[i];
+        }
     }
     CleanupChannels();
 
@@ -608,7 +611,13 @@ Player::~Player ()
         delete *itr;
 
     for (ItemMap::const_iterator iter = mMitems.begin(); iter != mMitems.end(); ++iter)
+    {
+        if (!iter->second)
+            continue;
+
+        iter->second->RemoveFromWorld(true);
         delete iter->second;                                //if item is duplicated... then server may crash ... but that item should be deallocated
+    }
 
     delete PlayerTalkClass;
 
@@ -651,10 +660,10 @@ void Player::CleanupsBeforeDelete()
     {
         TradeCancel(false);
         DuelComplete(DUEL_INTERRUPTED);
-    }
 
-    // notify zone scripts for player logout
-    sOutdoorPvPMgr.HandlePlayerLeaveZone(this, m_zoneUpdateId);
+        // notify zone scripts for player logout
+        sOutdoorPvPMgr.HandlePlayerLeaveZone(this, m_zoneUpdateId);
+    }
 
     Unit::CleanupsBeforeDelete();
 }
@@ -1922,6 +1931,7 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
 
             InterruptSpell(CURRENT_CHANNELED_SPELL);
             RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED);
+            UnsummonAllTotems();
 
             ResetContestedPvP();
 
@@ -2102,14 +2112,19 @@ void Player::AddToWorld()
         if (m_items[i])
             m_items[i]->AddToWorld();
     }
+    SetViewPoint(NULL);
 }
 
-void Player::RemoveFromWorld()
+void Player::RemoveFromWorld(bool remove)
 {
-    for(int i = PLAYER_SLOT_START; i < PLAYER_SLOT_END; ++i)
+    for (int i = PLAYER_SLOT_START; i < PLAYER_SLOT_END; ++i)
     {
         if (m_items[i])
-            m_items[i]->RemoveFromWorld();
+        {
+            m_items[i]->RemoveFromWorld(true);
+            // possible need delete Item structure in this place? Need recheck
+            //delete m_items[i];
+        }
     }
 
     ///- Do not add/remove the player from the object storage
@@ -2118,7 +2133,7 @@ void Player::RemoveFromWorld()
     if (IsInWorld() && GetCamera())
         GetCamera()->ResetView();
 
-    Unit::RemoveFromWorld();
+    Unit::RemoveFromWorld(remove);
 }
 
 void Player::RewardRage(uint32 damage, uint32 weaponSpeedHitFactor, bool attacker)
@@ -11351,7 +11366,7 @@ Item* Player::_StoreItem(uint16 pos, Item* pItem, uint32 count, bool clone, bool
             // delete item (it not in any slot currently)
             if (IsInWorld() && update)
             {
-                pItem->RemoveFromWorld();
+                pItem->RemoveFromWorld(false);
                 pItem->DestroyForPlayer(this);
             }
 
@@ -11467,7 +11482,7 @@ Item* Player::EquipItem(uint16 pos, Item* pItem, bool update)
         //pItem->DeleteFromDB();
         if (IsInWorld() && update)
         {
-            pItem->RemoveFromWorld();
+            pItem->RemoveFromWorld(false);
             pItem->DestroyForPlayer(this);
         }
 
@@ -11664,8 +11679,8 @@ void Player::MoveItemFromInventory(uint8 bag, uint8 slot, bool update)
         it->RemoveFromUpdateQueueOf(this);
         if (it->IsInWorld())
         {
-            it->RemoveFromWorld();
-            it->DestroyForPlayer( this );
+            it->RemoveFromWorld(false);
+            it->DestroyForPlayer(this);
         }
     }
 }
@@ -11776,7 +11791,7 @@ void Player::DestroyItem(uint8 bag, uint8 slot, bool update)
 
         if (IsInWorld() && update)
         {
-            pItem->RemoveFromWorld();
+            pItem->RemoveFromWorld(false);
             pItem->DestroyForPlayer(this);
         }
 
@@ -12527,10 +12542,10 @@ void Player::RemoveItemFromBuyBackSlot(uint32 slot, bool del)
     DEBUG_LOG("STORAGE: RemoveItemFromBuyBackSlot slot = %u", slot);
     if (slot >= BUYBACK_SLOT_START && slot < BUYBACK_SLOT_END)
     {
-        Item *pItem = m_items[slot];
+        Item* pItem = m_items[slot];
         if (pItem)
         {
-            pItem->RemoveFromWorld();
+            pItem->RemoveFromWorld(false);
             if (del)
                 pItem->SetState(ITEM_REMOVED, this);
         }
@@ -24736,6 +24751,14 @@ void Player::InterruptTaxiFlying()
     // save only in non-flight case
     else
         SaveRecallPosition();
+}
+
+Object* Player::GetDependentObject(ObjectGuid const& guid)
+{
+    // Currently only items dependent from player.
+    if (guid.IsEmpty() || !guid.IsItem())
+        return NULL;
+    return (Object*)GetItemByGuid(guid);
 }
 
 void Player::AddItemWithTimeCheck(uint32 lowGuid)
