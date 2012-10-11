@@ -22,16 +22,18 @@
 #include "Log.h"
 #include "Errors.h"
 #include "Player.h"
+#include "ObjectMgr.h"
 
-Camera::Camera(Player& player) : m_owner(player), m_source(&player)
+Camera::Camera(Player& player) : m_owner(player), m_sourceGuid(ObjectGuid())
 {
-    m_source->GetViewPoint().Attach(this);
 }
 
 Camera::~Camera()
 {
     // view of camera should be already reseted to owner (RemoveFromWorld -> Event_RemovedFromWorld -> ResetView)
-    MANGOS_ASSERT(GetBody() == (WorldObject*)GetOwner());
+    if (m_sourceGuid != GetOwner()->GetObjectGuid())
+        sLog.outError("Camera destuctor called: camera for %s not reseted (setted to %s)", 
+            GetOwner()->GetObjectGuid().GetString().c_str(), m_sourceGuid.IsEmpty() ? "<none>" : m_sourceGuid.GetString().c_str());
 
     // for symmetry with constructor and way to make viewpoint's list empty
     GetBody()->GetViewPoint().Detach(this);
@@ -56,8 +58,10 @@ void Camera::SetView(WorldObject* obj, bool update_far_sight_field /*= true*/)
 {
     MANGOS_ASSERT(obj);
 
-    if (GetBody() == obj)
+    if (obj->GetObjectGuid() == m_sourceGuid)
         return;
+
+    WorldObject* m_source = GetBody();
 
     if (!m_owner.IsInMap(obj))
     {
@@ -72,22 +76,27 @@ void Camera::SetView(WorldObject* obj, bool update_far_sight_field /*= true*/)
     }
 
     // detach and deregister from active objects if there are no more reasons to be active
-    if (GetBody())
+    if (m_source)
     {
-        GetBody()->GetViewPoint().Detach(this);
-        if (!GetBody()->isActiveObject())
-            GetBody()->GetMap()->RemoveFromActive(GetBody());
+        m_source->GetViewPoint().Detach(this);
+        if (!m_source->isActiveObject() && m_source->GetMap())
+            m_source->GetMap()->RemoveFromActive(m_source);
     }
 
-    m_source = obj;
+    DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "Camera::SetView %s changed camera base from %s to %s",
+        GetOwner()->GetObjectGuid().GetString().c_str(),
+        m_sourceGuid ? m_sourceGuid.GetString().c_str() : "<none>",
+        obj->GetObjectGuid().GetString().c_str());
 
-    if (!GetBody()->isActiveObject())
-        GetBody()->GetMap()->AddToActive(GetBody());
+    m_sourceGuid = obj->GetObjectGuid();
 
-    GetBody()->GetViewPoint().Attach(this);
+    if (!obj->isActiveObject() && obj->GetMap())
+        obj->GetMap()->AddToActive(obj);
+
+    obj->GetViewPoint().Attach(this);
 
     if (update_far_sight_field)
-        m_owner.SetGuidValue(PLAYER_FARSIGHT, (GetBody() == &m_owner ? ObjectGuid() : GetBody()->GetObjectGuid()));
+        m_owner.SetGuidValue(PLAYER_FARSIGHT, (m_sourceGuid == m_owner.GetObjectGuid() ? ObjectGuid() : m_sourceGuid));
 
     UpdateForCurrentViewPoint();
 }
@@ -100,7 +109,7 @@ void Camera::Event_ViewPointVisibilityChanged()
 
 void Camera::ResetView(bool update_far_sight_field /*= true*/)
 {
-    if ((WorldObject*)GetOwner() == GetBody())
+    if (GetOwner()->GetObjectGuid() == m_sourceGuid)
         return;
 
     SetView(&m_owner, update_far_sight_field);
@@ -108,6 +117,9 @@ void Camera::ResetView(bool update_far_sight_field /*= true*/)
 
 void Camera::Event_AddedToWorld()
 {
+    if (m_sourceGuid.IsEmpty())
+        ResetView();
+
     GridType* grid = GetBody()->GetViewPoint().m_grid;
     MANGOS_ASSERT(grid);
     grid->AddWorldObject(this);
@@ -117,7 +129,7 @@ void Camera::Event_AddedToWorld()
 
 void Camera::Event_RemovedFromWorld()
 {
-    if (GetBody() == &m_owner)
+    if (GetOwner()->GetObjectGuid() == m_sourceGuid)
     {
         m_gridRef.unlink();
         return;
@@ -151,17 +163,26 @@ template void Camera::UpdateVisibilityOf(DynamicObject* , UpdateData& , std::set
 
 void Camera::UpdateVisibilityForOwner()
 {
-    if (!GetBody() || !GetBody()->IsInWorld())
+    WorldObject* m_source = GetBody();
+    if (!m_source->GetMap())
         return;
 
     MaNGOS::VisibleNotifier notifier(*this);
-    Cell::VisitAllObjects(GetBody(), notifier, GetBody()->GetMap()->GetVisibilityDistance(GetBody()), false);
+    Cell::VisitAllObjects(m_source, notifier, m_source->GetMap()->GetVisibilityDistance(m_source), false);
     notifier.Notify();
 }
 
 WorldObject* Camera::GetBody()
 {
-    return m_source;
+    if (m_sourceGuid.IsEmpty() 
+        || GetOwner()->GetObjectGuid() == m_sourceGuid
+        || !m_owner.IsInWorld() 
+        || !m_owner.GetMap())
+        return &m_owner;
+
+    WorldObject* m_source = m_owner.GetMap()->GetWorldObject(m_sourceGuid);
+
+    return m_source ? m_source : &m_owner;
 }
 
 //////////////////
@@ -170,19 +191,49 @@ ViewPoint::~ViewPoint()
 {
     if (!m_cameras.empty())
     {
-        sLog.outError("ViewPoint destructor called, but some cameras referenced to it");
+        sLog.outError("ViewPoint destructor for %s called, but %u camera(s) referenced to it",
+            m_body.GetObjectGuid().GetString().c_str(),m_cameras.size());
         m_cameras.clear();
     }
 }
 
 void ViewPoint::Attach(Camera* camera) 
 {
-    MAPLOCK_READ(GetBody(),MAP_LOCK_TYPE_DEFAULT);
-    m_cameras.insert(camera);
+    m_cameras.insert(camera->GetOwner()->GetObjectGuid());
 }
 
 void ViewPoint::Detach(Camera* camera) 
 {
-    MAPLOCK_READ(GetBody(),MAP_LOCK_TYPE_DEFAULT);
-    m_cameras.erase(camera);
+    m_cameras.erase(camera->GetOwner()->GetObjectGuid());
+}
+
+void ViewPoint::CameraCall(void (Camera::*handler)())
+{
+    if (!m_cameras.empty())
+    {
+
+        for (CameraList::iterator itr = m_cameras.begin(); itr != m_cameras.end();)
+        {
+            ObjectGuid guid = *itr;
+            if (guid == m_body.GetObjectGuid())
+            {
+                if (Camera* c = ((Player*)&m_body)->GetCamera())
+                    (c->*handler)();
+                ++itr;
+            }
+            else if (m_body.GetMap())
+            {
+                if (Player* player = m_body.GetMap()->GetPlayer(guid))
+                {
+                    if (Camera* c = player->GetCamera())
+                        (c->*handler)();
+                    ++itr;
+                }
+                else
+                    m_cameras.erase(guid);
+            }
+            else
+                m_cameras.erase(guid);
+        }
+    }
 }
