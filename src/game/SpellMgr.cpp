@@ -2538,12 +2538,15 @@ uint32 SpellMgr::GetSpellMaxTargetsWithCustom(SpellEntry const* spellInfo, Unit 
                 case 804:                                   // Explode Bug
                 case 23138:                                 // Gate of Shazzrah
                 case 28560:                                 // Summon Blizzard
+                case 30541:                                 // Blaze (Magtheridon)
+                case 30572:                                 // Quake (Magtheridon)
                 case 30769:                                 // Pick Red Riding Hood
                 case 30835:                                 // Infernal Relay
                 case 31347:                                 // Doom TODO: exclude top threat target from target selection
                 case 33711:                                 // Murmur's Touch
                 case 38794:                                 // Murmur's Touch (h)
                 case 44869:                                 // Spectral Blast
+                case 45892:                                 // Sinister Reflection (SWP, Kil'jaeden)
                 case 45976:                                 // Open Portal
                 case 47669:                                 // Wakeup Subboss (Utgarde Pinnacle)
                 case 48278:                                 // Paralyze (Utgarde Pinnacle)
@@ -2588,6 +2591,7 @@ uint32 SpellMgr::GetSpellMaxTargetsWithCustom(SpellEntry const* spellInfo, Unit 
                 case 67470:                                 // Pursuing Spikes
                 case 68950:                                 // Fear (FoS)
                 case 68912:                                 // Wailing Souls (FoS)
+                case 68987:                                 // Pursuit (Pit of Saron, Ick)
                 case 69048:                                 // Mirrored Soul (FoS)
                 case 69140:                                 // Coldflame (ICC, Marrowgar)
                 case 69674:                                 // Mutated Infection (ICC, Rotface)
@@ -2622,6 +2626,8 @@ uint32 SpellMgr::GetSpellMaxTargetsWithCustom(SpellEntry const* spellInfo, Unit 
                 case 30004:                                 // Flame Wreath
                 case 31298:                                 // Sleep
                 case 39992:                                 // Needle Spine Targeting (BT, Warlord Najentus)
+                case 41303:                                 // Soul Drain (BT, Reliquary of Souls)
+                case 41376:                                 // Spite (BT, Reliquary of Souls)
                 case 51904:                                 // Limiting the count of Summoned Ghouls
                 case 54522:
                 case 60936:                                 // Surge of Power (h) (Malygos)
@@ -2639,6 +2645,7 @@ uint32 SpellMgr::GetSpellMaxTargetsWithCustom(SpellEntry const* spellInfo, Unit 
                     unMaxTargets = 4;
                     break;
                 case 30843:                                 // Enfeeble
+                case 40243:                                 // Crushing Shadows (BT, Teron Gorefiend)
                 case 42005:                                 // Bloodboil
                 case 45641:                                 // Fire Bloom (SWP, Kil'jaeden)
                 case 55665:                                 // Life Drain (h)
@@ -3822,7 +3829,7 @@ void SpellMgr::LoadPetDefaultSpells()
     uint32 countCreature = 0;
     uint32 countData = 0;
 
-    for(uint32 i = 0; i < sCreatureStorage.MaxEntry; ++i )
+    for (uint32 i = 0; i < sCreatureStorage.GetMaxEntry(); ++i)
     {
         CreatureInfo const* cInfo = sCreatureStorage.LookupEntry<CreatureInfo>(i);
         if(!cInfo)
@@ -3872,10 +3879,19 @@ void SpellMgr::LoadPetDefaultSpells()
                 int32 petSpellsId = cInfo->Entry;
                 if (mPetDefaultSpellsMap.find(cInfo->Entry) != mPetDefaultSpellsMap.end())
                     continue;
-
                 PetDefaultSpellsEntry petDefSpells;
-                for(int j = 0; j < MAX_CREATURE_SPELL_DATA_SLOT; ++j)
-                    petDefSpells.spellid[j] = cInfo->spells[j];
+
+                CreatureSpellsList const* spellList = sObjectMgr.GetCreatureSpells(cInfo->Entry);
+                if (spellList && !spellList->empty())
+                {
+                    for (CreatureSpellsList::const_iterator itr = spellList->begin(); (itr != spellList->end() && itr->first < MAX_CREATURE_SPELL_DATA_SLOT); ++itr)
+                    {
+                        if (itr->second.disabled || !itr->second.spell)
+                            petDefSpells.spellid[itr->first] = 0;
+                        else
+                            petDefSpells.spellid[itr->first] = itr->second.spell;
+                    }
+                }
 
                 if (LoadPetDefaultSpells_helper(cInfo, petDefSpells))
                 {
@@ -5365,7 +5381,7 @@ SpellPreferredTargetType GetPreferredTargetForSpell(SpellEntry const* spellInfo)
 
 static char* SPELL_DBC_SPELL      = "reconstructed by spell_dbc spell";
 
-struct SpellDbcLoader : public SQLStorageLoaderBase<SpellDbcLoader>
+struct SpellDbcLoader : public SQLStorageLoaderBase<SpellDbcLoader, SQLHashStorage>
 {
     template<class S, class D>
     void default_fill(uint32 field_pos, S src, D &dst)
@@ -5392,10 +5408,10 @@ void SpellMgr::LoadSpellDbc()
     SpellDbcLoader loader;
     loader.Load(sSpellDbcTemplate);
 
-    sLog.outString(">> Loaded %u spell definitions", sSpellDbcTemplate.RecordCount);
+    sLog.outString(">> Loaded %u spell definitions", sSpellDbcTemplate.GetRecordCount());
     sLog.outString();
 
-    for (uint32 i = 1; i < sSpellDbcTemplate.MaxEntry; ++i)
+    for (uint32 i = 1; i < sSpellDbcTemplate.GetMaxEntry(); ++i)
     {
         // check data correctness
         SpellEntry const* spellEntry = sSpellDbcTemplate.LookupEntry<SpellEntry>(i);

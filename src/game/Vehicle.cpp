@@ -26,6 +26,7 @@
 #include "Util.h"
 #include "WorldPacket.h"
 #include "movement/MoveSpline.h"
+#include "SQLStorages.h"
 
 VehicleInfo::VehicleInfo(VehicleEntry const* entry) :
     m_vehicleEntry(entry)
@@ -65,8 +66,11 @@ VehicleKit::VehicleKit(Unit* base) :  m_pBase(base), m_uiNumFreeSeats(0)
         if (GetBase()->GetVehicleInfo()->GetEntry()->m_flags & VEHICLE_FLAG_ALLOW_PITCHING)
             GetBase()->m_movementInfo.AddMovementFlag2(MOVEFLAG2_ALLOW_PITCHING);
 
-        if (GetBase()->GetVehicleInfo()->GetEntry()->m_flags & VEHICLE_FLAG_ALLOW_PITCHING)
+        if (GetBase()->GetVehicleInfo()->GetEntry()->m_flags & VEHICLE_FLAG_FULLSPEEDPITCHING)
+        {
+            GetBase()->m_movementInfo.AddMovementFlag2(MOVEFLAG2_ALLOW_PITCHING);
             GetBase()->m_movementInfo.AddMovementFlag2(MOVEFLAG2_FULLSPEEDPITCHING);
+        }
 
     }
     SetDestination();
@@ -74,6 +78,7 @@ VehicleKit::VehicleKit(Unit* base) :  m_pBase(base), m_uiNumFreeSeats(0)
 
 VehicleKit::~VehicleKit()
 {
+    GetBase()->RemoveSpellsCausingAura(SPELL_AURA_CONTROL_VEHICLE);
 }
 
 void VehicleKit::RemoveAllPassengers()
@@ -215,12 +220,8 @@ bool VehicleKit::AddPassenger(Unit* passenger, int8 seatId)
 
     if (passenger->GetTypeId() == TYPEID_PLAYER)
     {
-        ((Player*)passenger)->GetCamera().SetView(m_pBase);
-
-        WorldPacket data(SMSG_FORCE_MOVE_ROOT, 8+4);
-        data << passenger->GetPackGUID();
-        data << uint32((passenger->m_movementInfo.GetVehicleSeatFlags() & SEAT_FLAG_CAN_CAST) ? 2 : 0);
-        passenger->SendMessageToSet(&data, true);
+        ((Player*)passenger)->SetViewPoint(m_pBase);
+        passenger->SetRoot(true);
     }
 
     if (seat->second.IsProtectPassenger())
@@ -230,7 +231,6 @@ bool VehicleKit::AddPassenger(Unit* passenger, int8 seatId)
             case 33651:                                     // VX 001
             case 33432:                                     // Leviathan MX
             case 33118:                                     // Ignis (Ulduar)
-            case 32934:                                     // Kologarn Right Arm (Ulduar)
             case 30234:                                     // Nexus Lord's Hover Disk (Eye of Eternity, Malygos Encounter)
             case 30248:                                     // Scion's of Eternity Hover Disk (Eye of Eternity, Malygos Encounter)
                 break;
@@ -287,16 +287,12 @@ bool VehicleKit::AddPassenger(Unit* passenger, int8 seatId)
 
         if (m_pBase->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE))
         {
-            WorldPacket data2(SMSG_FORCE_MOVE_ROOT, 8+4);
-            data2 << m_pBase->GetPackGUID();
-            data2 << (uint32)(2);
-            m_pBase->SendMessageToSet(&data2,false);
+            m_pBase->SetRoot(true);
         }
-        else if (passenger->m_movementInfo.GetMovementFlags() & MOVEFLAG_WALK_MODE)
-            ((Creature*)m_pBase)->SetWalk(true);
-        else
-            ((Creature*)m_pBase)->SetWalk(false);
-
+        else if (passenger->IsWalking() && !GetBase()->IsWalking())
+            ((Creature*)m_pBase)->SetWalk(true, true);
+        else if (!passenger->IsWalking() && GetBase()->IsWalking())
+            ((Creature*)m_pBase)->SetWalk(false, true);
     }
     else if ((seatInfo->m_flags & SEAT_FLAG_FREE_ACTION) || (seatInfo->m_flags & SEAT_FLAG_CAN_ATTACK))
     {
@@ -379,12 +375,9 @@ void VehicleKit::RemovePassenger(Unit* passenger, bool dismount)
     if (passenger->GetTypeId() == TYPEID_PLAYER)
     {
         Player* player = (Player*)passenger;
-        player->GetCamera().ResetView();
+        player->SetViewPoint(NULL);
 
-        WorldPacket data(SMSG_FORCE_MOVE_UNROOT, 8+4);
-        data << passenger->GetPackGUID();
-        data << uint32(0);
-        passenger->SendMessageToSet(&data, true);
+        passenger->SetRoot(false);
 
         player->SetMover(player);
         player->m_movementInfo.RemoveMovementFlag(MOVEFLAG_ROOT);
@@ -431,44 +424,42 @@ void VehicleKit::Reset()
 
 void VehicleKit::InstallAllAccessories(uint32 entry)
 {
-    VehicleAccessoryList const* mVehicleList = sObjectMgr.GetVehicleAccessoryList(entry);
-    if (!mVehicleList)
-        return;
-
-    for (VehicleAccessoryList::const_iterator itr = mVehicleList->begin(); itr != mVehicleList->end(); ++itr)
-        InstallAccessory(&*itr);
+    SQLMultiStorage::SQLMSIteratorBounds<VehicleAccessory> const& bounds = sVehicleAccessoryStorage.getBounds<VehicleAccessory>(entry);
+    for (SQLMultiStorage::SQLMultiSIterator<VehicleAccessory> itr = bounds.first; itr != bounds.second; ++itr)
+        InstallAccessory(*itr);
 }
 
 void VehicleKit::InstallAccessory(VehicleAccessory const* accessory)
 {
-    if (Unit *passenger = GetPassenger(accessory->uiSeat))
+    if (Unit* passenger = GetPassenger(accessory->seatId))
     {
         // already installed
-        if (passenger->GetEntry() == accessory->uiAccessory)
+        if (passenger->GetEntry() == accessory->passengerEntry)
             return;
-
-        passenger->ExitVehicle();
+        m_pBase->RemoveSpellsCausingAura(SPELL_AURA_CONTROL_VEHICLE, passenger->GetObjectGuid());
     }
 
-    if (Creature* summoned = m_pBase->SummonCreature(accessory->uiAccessory,
+    if (Creature* summoned = m_pBase->SummonCreature(accessory->passengerEntry,
         m_pBase->GetPositionX() + accessory->m_offsetX, m_pBase->GetPositionY() + accessory->m_offsetY, m_pBase->GetPositionZ() + accessory->m_offsetZ, m_pBase->GetOrientation() + accessory->m_offsetX,
         TEMPSUMMON_CORPSE_TIMED_DESPAWN, 30000))
     {
         SetDestination(accessory->m_offsetX,accessory->m_offsetY,accessory->m_offsetZ,accessory->m_offsetO,0.0f,0.0f);
         summoned->SetCreatorGuid(ObjectGuid());
         summoned->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE);
-        summoned->EnterVehicle(m_pBase, accessory->uiSeat);
+        int32 seatId = accessory->seatId + 1;
+        summoned->CastCustomSpell(m_pBase, SPELL_RIDE_VEHICLE_HARDCODED, &seatId, &seatId, NULL, true);
+
         SetDestination();
         if (summoned->GetVehicle())
-            DEBUG_LOG("Vehicle::InstallAccessory %s accessory added, seat %u of %s",summoned->GetObjectGuid().GetString().c_str(), accessory->uiSeat, m_pBase->GetObjectGuid().GetString().c_str());
+            DEBUG_LOG("Vehicle::InstallAccessory %s accessory added, seat %i (real %i) of %s",summoned->GetObjectGuid().GetString().c_str(), accessory->seatId, GetSeatId(summoned), m_pBase->GetObjectGuid().GetString().c_str());
         else
         {
-            sLog.outError("Vehicle::InstallAccessory cannot install %s to seat %u of %s",summoned->GetObjectGuid().GetString().c_str(), accessory->uiSeat, m_pBase->GetObjectGuid().GetString().c_str());
+            sLog.outError("Vehicle::InstallAccessory cannot install %s to seat %u of %s",summoned->GetObjectGuid().GetString().c_str(), accessory->seatId, m_pBase->GetObjectGuid().GetString().c_str());
             summoned->ForcedDespawn();
         }
     }
     else
-        sLog.outError("Vehicle::InstallAccessory cannot summon creature id %u (seat %u of %s)",accessory->uiAccessory, accessory->uiSeat,m_pBase->GetObjectGuid().GetString().c_str());
+        sLog.outError("Vehicle::InstallAccessory cannot summon creature id %u (seat %u of %s)",accessory->passengerEntry, accessory->seatId,m_pBase->GetObjectGuid().GetString().c_str());
 }
 
 void VehicleKit::UpdateFreeSeatCount()

@@ -1360,7 +1360,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
             {
                 int32 bp = count * CalculateDamage(EFFECT_INDEX_2, unitTarget) * damageInfo.damage / 100;
                 if (Aura const* dummy = caster->GetDummyAura(64736)) // Item - Death Knight T8 Melee 4P Bonus
-                    bp *= ((float)dummy->GetModifier()->m_amount+100.0f)/100.0f;
+                    bp *= ((dummy->GetModifier()->m_amount * count) + 100.0f) / 100.0f;
 
                 if (bp)
                     caster->CastCustomSpell(unitTarget, 70890, &bp, NULL, NULL, true);
@@ -2184,8 +2184,11 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 switch (m_spellInfo->Id)
                 {
                     case 30843:                                             // Enfeeble
+                    case 31347:                                             // Doom
                     case 37676:                                             // Insidious Whisper
                     case 38028:                                             // Watery Grave
+                    case 40618:                                             // Insignificance
+                    case 41376:                                             // Spite
                         if (Unit* pVictim = m_caster->getVictim())
                             targetUnitMap.remove(pVictim);
                         break;
@@ -3339,8 +3342,8 @@ void Spell::cancel(bool force)
         return;
 
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Spell::cancel spell %u caster %s target %s cancelled.", 
-        m_spellInfo->Id, m_caster ? m_caster->GetObjectGuid().GetString().c_str() : "<none>",
-        m_targets.getUnitTarget() ? m_targets.getUnitTarget()->GetObjectGuid().GetString().c_str() : "<none>");
+        m_spellInfo->Id, (m_caster && m_caster->IsInWorld()) ? m_caster->GetObjectGuid().GetString().c_str() : "<none>",
+        (m_targets.getUnitTarget() && m_targets.getUnitTarget()->IsInWorld()) ? m_targets.getUnitTarget()->GetObjectGuid().GetString().c_str() : "<none>");
 
     // channeled spells don't display interrupted message even if they are interrupted, possible other cases with no "Interrupted" message
     bool sendInterrupt = IsChanneledSpell(m_spellInfo) ? false : true;
@@ -4000,7 +4003,7 @@ void Spell::update(uint32 difftime)
                 // check if all targets away range
                 if (!m_IsTriggeredSpell && (difftime >= m_timer))
                 {
-                    SpellCastResult result = CheckRange(true, m_targets.getUnitTarget());
+                    SpellCastResult result = CheckRange(false, m_targets.getUnitTarget());
                     bool checkFailed = false;
                     switch (result)
                     {
@@ -4020,8 +4023,12 @@ void Spell::update(uint32 difftime)
 
                     if (checkFailed)
                     {
+                        DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Spell::update  spell %u caster %s  target %s cancelled by CheckRange wile cast process continued (code %u)",
+                            m_spellInfo->Id, m_caster ? m_caster->GetObjectGuid().GetString().c_str() : "<none>", 
+                            m_targets.getUnitTarget() ? m_targets.getUnitTarget()->GetObjectGuid().GetString().c_str() : "<none>", 
+                            result);
                         SendCastResult(result);
-                        cancel();
+                        cancel(true);
                         return;
                     }
                 }
@@ -4728,6 +4735,35 @@ void Spell::SendChannelUpdate(uint32 time)
 {
     if (time == 0)
     {
+        // Temp solution (ha-a-ack...) from cmangos - need rewrite to UnitStates
+        // Reset farsight for some possessing auras of possessed summoned (as they might work with different aura types)
+        if (m_spellInfo->HasAttribute(SPELL_ATTR_EX_FARSIGHT) && m_caster->GetTypeId() == TYPEID_PLAYER && m_caster->GetCharmGuid()
+                && !IsSpellHaveAura(m_spellInfo, SPELL_AURA_MOD_POSSESS) && !IsSpellHaveAura(m_spellInfo, SPELL_AURA_MOD_POSSESS_PET))
+        {
+            Player* player = (Player*)m_caster;
+            // These Auras are applied to self, so get the possessed first
+            Unit* possessed = player->GetCharm();
+
+            player->SetCharm(NULL);
+            if (possessed)
+                player->SetClientControl(possessed, 0);
+            player->SetMover(NULL);
+            player->SetViewPoint(NULL);
+            player->RemovePetActionBar();
+
+            if (possessed)
+            {
+                possessed->clearUnitState(UNIT_STAT_CONTROLLED);
+                possessed->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
+                possessed->SetCharmerGuid(ObjectGuid());
+                // TODO - Requires more specials for target?
+
+                // Some possessed might want to despawn?
+                if (possessed->GetUInt32Value(UNIT_CREATED_BY_SPELL) == m_spellInfo->Id && possessed->GetTypeId() == TYPEID_UNIT)
+                    ((Creature*)possessed)->ForcedDespawn();
+            }
+        }
+
         m_caster->RemoveAurasByCasterSpell(m_spellInfo->Id, m_caster->GetObjectGuid());
 
         ObjectGuid target_guid = m_caster->GetChannelObjectGuid();
@@ -5311,6 +5347,10 @@ SpellCastResult Spell::CheckCast(bool strict)
             }
         }
 
+        // Disengage-like spells allow use only in combat
+        if (m_spellInfo->HasAttribute(SPELL_ATTR_STOP_ATTACK_TARGET) && m_spellInfo->HasAttribute(SPELL_ATTR_EX2_UNK26) && !m_caster->isInCombat())
+            return SPELL_FAILED_CASTER_AURASTATE;
+
         if (!m_IsTriggeredSpell 
             && NeedsComboPoints(m_spellInfo) 
             && !m_caster->IsIgnoreUnitState(m_spellInfo, IGNORE_UNIT_TARGET_STATE) 
@@ -5800,7 +5840,7 @@ SpellCastResult Spell::CheckCast(bool strict)
 
     if(!m_IsTriggeredSpell)
     {
-        SpellCastResult castResult = CheckRange(strict);
+        SpellCastResult castResult = CheckRange(strict, m_targets.getUnitTarget());
         if (castResult != SPELL_CAST_OK)
             return castResult;
     }
@@ -6287,6 +6327,11 @@ SpellCastResult Spell::CheckCast(bool strict)
                     return SPELL_FAILED_ROOTED;
                 break;
             }
+            case SPELL_EFFECT_ADD_FARSIGHT:
+            {
+                if (m_caster->GetTypeId() != TYPEID_PLAYER || ((Player*)m_caster)->HasExternalViewPoint())
+                    return SPELL_FAILED_BAD_TARGETS;
+            }
             default:
                 break;
         }
@@ -6486,6 +6531,12 @@ SpellCastResult Spell::CheckCast(bool strict)
                         return SPELL_FAILED_BAD_TARGETS;
                 }
                 break;
+            }
+            case SPELL_AURA_FAR_SIGHT:
+            case SPELL_AURA_BIND_SIGHT:
+            {
+                if (m_caster->GetTypeId() != TYPEID_PLAYER || ((Player*)m_caster)->HasExternalViewPoint())
+                    return SPELL_FAILED_BAD_TARGETS;
             }
             default:
                 break;
@@ -6909,7 +6960,7 @@ SpellCastResult Spell::CheckRange(bool strict, WorldObject* checkTarget)
     bool friendly = target ? target->IsFriendlyTo(m_caster) : false;
     float max_range = GetSpellMaxRange(srange, friendly);
     float min_range = GetSpellMinRange(srange, friendly);
-    float add_range = checkTarget ? 0.0f : (strict ? 1.25f : 6.25f);
+    float add_range = bool(checkTarget) ? checkTarget->GetObjectBoundingRadius() : (strict ? 1.25f : 6.25f);
 
     // special range cases
     switch(m_spellInfo->rangeIndex)
@@ -6983,9 +7034,9 @@ SpellCastResult Spell::CheckRange(bool strict, WorldObject* checkTarget)
     }
 
     // TODO verify that such spells really use bounding radius
-    if (m_targets.m_targetMask == TARGET_FLAG_DEST_LOCATION && m_targets.m_destX != 0 && m_targets.m_destY != 0 && m_targets.m_destZ != 0)
+    if (m_targets.HasLocation())
     {
-        if(!m_caster->IsWithinDist3d(m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, max_range))
+        if (max_range && !m_caster->IsWithinDist3d(m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, max_range))
             return SPELL_FAILED_OUT_OF_RANGE;
         if (min_range && m_caster->IsWithinDist3d(m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, min_range))
             return SPELL_FAILED_TOO_CLOSE;

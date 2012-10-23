@@ -1177,7 +1177,7 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(char* args)
     if (!ExtractInt32(&args, gm))
         return false;
 
-    uint32 gmRealmID = realmID;
+    uint32 gmRealmID = sWorld.getConfig(CONFIG_UINT32_REALMID);
 
     if (gm < SEC_PLAYER || gm > SEC_ADMINISTRATOR)
     {
@@ -1193,7 +1193,7 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(char* args)
 
     /// account can't set security to same or grater level, need more power GM or console
     AccountTypes plSecurity = GetAccessLevel();
-    if (AccountTypes(gm) >= plSecurity || (gmRealmID != realmID && plSecurity < SEC_CONSOLE))
+    if (AccountTypes(gm) >= plSecurity || (gmRealmID != sWorld.getConfig(CONFIG_UINT32_REALMID) && plSecurity < SEC_CONSOLE))
     {
         SendSysMessage(LANG_YOURS_SECURITY_IS_LOW);
         SetSentErrorMessage(true);
@@ -1226,8 +1226,8 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(char* args)
     }
     else
     {
-        LoginDatabase.PExecute("DELETE FROM account_access WHERE id = '%u' AND RealmID = '%d'", targetAccountId, realmID);
-        LoginDatabase.PExecute("INSERT INTO account_access VALUES ('%u','%d','%d')", targetAccountId, gm, realmID);
+        LoginDatabase.PExecute("DELETE FROM account_access WHERE id = '%u' AND RealmID = '%d'", targetAccountId, sWorld.getConfig(CONFIG_UINT32_REALMID));
+        LoginDatabase.PExecute("INSERT INTO account_access VALUES ('%u','%d','%d')", targetAccountId, gm, sWorld.getConfig(CONFIG_UINT32_REALMID));
     }
     //LoginDatabase.PExecute("UPDATE account SET gmlevel = '%i' WHERE id = '%u'", gm, targetAccountId);
 
@@ -2733,7 +2733,7 @@ bool ChatHandler::HandleAddItemSetCommand(char* args)
     DETAIL_LOG(GetMangosString(LANG_ADDITEMSET), itemsetId);
 
     bool found = false;
-    for (uint32 id = 0; id < sItemStorage.MaxEntry; ++id)
+    for (uint32 id = 0; id < sItemStorage.GetMaxEntry(); ++id)
     {
         ItemPrototype const* pProto = sItemStorage.LookupEntry<ItemPrototype>(id);
         if (!pProto)
@@ -3182,7 +3182,7 @@ bool ChatHandler::HandleLookupItemCommand(char* args)
     uint32 counter = 0;
 
     // Search in `item_template`
-    for (uint32 id = 0; id < sItemStorage.MaxEntry; ++id)
+    for (uint32 id = 0; id < sItemStorage.GetMaxEntry(); ++id)
     {
         ItemPrototype const* pProto = sItemStorage.LookupEntry<ItemPrototype >(id);
         if (!pProto)
@@ -3540,7 +3540,7 @@ bool ChatHandler::HandleLookupCreatureCommand(char* args)
 
     uint32 counter = 0;
 
-    for (uint32 id = 0; id < sCreatureStorage.MaxEntry; ++id)
+    for (uint32 id = 0; id < sCreatureStorage.GetMaxEntry(); ++id)
     {
         CreatureInfo const* cInfo = sCreatureStorage.LookupEntry<CreatureInfo> (id);
         if (!cInfo)
@@ -3587,7 +3587,7 @@ bool ChatHandler::HandleLookupObjectCommand(char* args)
 
     uint32 counter = 0;
 
-    for (uint32 id = 0; id < sGOStorage.MaxEntry; ++id)
+    for (uint32 id = 0; id < sGOStorage.GetMaxEntry(); ++id)
     {
         GameObjectInfo const* gInfo = sGOStorage.LookupEntry<GameObjectInfo>(id);
         if (!gInfo)
@@ -4325,7 +4325,6 @@ bool ChatHandler::HandleNpcInfoCommand(char* /*args*/)
     {
         SendSysMessage(LANG_NPCINFO_TRAINER);
     }
-
 
     ShowNpcOrGoSpawnInformation<Creature>(target->GetGUIDLow());
     return true;
@@ -5387,7 +5386,7 @@ bool ChatHandler::HandleQuestAddCommand(char* args)
     }
 
     // check item starting quest (it can work incorrectly if added without item in inventory)
-    for (uint32 id = 0; id < sItemStorage.MaxEntry; ++id)
+    for (uint32 id = 0; id < sItemStorage.GetMaxEntry(); ++id)
     {
         ItemPrototype const* pProto = sItemStorage.LookupEntry<ItemPrototype>(id);
         if (!pProto)

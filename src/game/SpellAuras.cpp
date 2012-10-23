@@ -1981,6 +1981,17 @@ void Aura::TriggerSpell()
 //                    case 65422: break;
 //                    // Rolling Throw
 //                    case 67546: break;
+                    case 69012:                             // Explosive Barrage - Krick and Ick
+                    {
+                        if (triggerTarget->GetTypeId() == TYPEID_UNIT)
+                        {
+                            if (Unit* pTarget = ((Creature*)triggerTarget)->SelectAttackingTarget(ATTACKING_TARGET_RANDOM, 0))
+                            {
+                                triggerTarget->CastSpell(pTarget, 69015, true);
+                            }
+                        }
+                        return;
+                    }
                     case 70017:                             // Gunship Cannon Fire
                         trigger_spell_id = 70021;
                         break;
@@ -3835,9 +3846,9 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     Totem* totem = target->GetTotem(TOTEM_SLOT_AIR);
 
                     if (totem && apply)
-                        ((Player*)target)->GetCamera().SetView(totem);
+                        ((Player*)target)->SetViewPoint(totem);
                     else
-                        ((Player*)target)->GetCamera().ResetView();
+                        ((Player*)target)->SetViewPoint(NULL);
 
                     return;
                 }
@@ -3914,14 +3925,7 @@ void Aura::HandleAuraWaterWalk(bool apply, bool Real)
     if (!apply && GetTarget()->HasAuraType(SPELL_AURA_WATER_WALK))
         return;
 
-    WorldPacket data;
-    if (apply)
-        data.Initialize(SMSG_MOVE_WATER_WALK, 8+4);
-    else
-        data.Initialize(SMSG_MOVE_LAND_WALK, 8+4);
-    data << GetTarget()->GetPackGUID();
-    data << uint32(0);
-    GetTarget()->SendMessageToSet(&data, true);
+    GetTarget()->SetWaterWalk(apply);
 }
 
 void Aura::HandleAuraFeatherFall(bool apply, bool Real)
@@ -4719,14 +4723,14 @@ void Aura::HandleChannelDeathItem(bool apply, bool Real)
 void Aura::HandleBindSight(bool apply, bool /*Real*/)
 {
     Unit* caster = GetCaster();
+
     if(!caster || caster->GetTypeId() != TYPEID_PLAYER)
         return;
 
-    Camera& camera = ((Player*)caster)->GetCamera();
     if (apply)
-        camera.SetView(GetTarget());
+        ((Player*)caster)->SetViewPoint(GetTarget());
     else
-        camera.ResetView();
+        ((Player*)caster)->SetViewPoint(NULL);
 }
 
 void Aura::HandleFarSight(bool apply, bool /*Real*/)
@@ -4735,11 +4739,10 @@ void Aura::HandleFarSight(bool apply, bool /*Real*/)
     if(!caster || caster->GetTypeId() != TYPEID_PLAYER)
         return;
 
-    Camera& camera = ((Player*)caster)->GetCamera();
     if (apply)
-        camera.SetView(GetTarget());
+        ((Player*)caster)->SetViewPoint(GetTarget());
     else
-        camera.ResetView();
+        ((Player*)caster)->SetViewPoint(NULL);
 }
 
 void Aura::HandleAuraTrackCreatures(bool apply, bool /*Real*/)
@@ -4803,9 +4806,8 @@ void Aura::HandleModPossess(bool apply, bool Real)
         return;
 
     Player* p_caster = (Player*)caster;
-    Camera& camera = p_caster->GetCamera();
 
-    if ( apply )
+    if (apply)
     {
         target->addUnitState(UNIT_STAT_CONTROLLED);
 
@@ -4815,7 +4817,7 @@ void Aura::HandleModPossess(bool apply, bool Real)
 
         // target should became visible at SetView call(if not visible before):
         // otherwise client\p_caster will ignore packets from the target(SetClientControl for example)
-        camera.SetView(target);
+        p_caster->SetViewPoint(target);
 
         p_caster->SetCharm(target);
         p_caster->SetClientControl(target, 1);
@@ -4853,7 +4855,7 @@ void Aura::HandleModPossess(bool apply, bool Real)
 
         // there is a possibility that target became invisible for client\p_caster at ResetView call:
         // it must be called after movement control unapplying, not before! the reason is same as at aura applying
-        camera.ResetView();
+        p_caster->SetViewPoint(NULL);
 
         p_caster->RemovePetActionBar();
 
@@ -4904,9 +4906,7 @@ void Aura::HandleModPossessPet(bool apply, bool Real)
         return;
 
     Pet* pet = (Pet*)target;
-
     Player* p_caster = (Player*)caster;
-    Camera& camera = p_caster->GetCamera();
 
     if (apply)
     {
@@ -4914,7 +4914,7 @@ void Aura::HandleModPossessPet(bool apply, bool Real)
 
         // target should became visible at SetView call(if not visible before):
         // otherwise client\p_caster will ignore packets from the target(SetClientControl for example)
-        camera.SetView(pet);
+        p_caster->SetViewPoint(pet);
 
         p_caster->SetCharm(pet);
         p_caster->SetClientControl(pet, 1);
@@ -4933,7 +4933,7 @@ void Aura::HandleModPossessPet(bool apply, bool Real)
 
         // there is a possibility that target became invisible for client\p_caster at ResetView call:
         // it must be called after movement control unapplying, not before! the reason is same as at aura applying
-        camera.ResetView();
+        p_caster->SetViewPoint(NULL);
 
         // on delete only do caster related effects
         if (m_removeMode == AURA_REMOVE_BY_DELETE)
@@ -5273,10 +5273,7 @@ void Aura::HandleAuraModStun(bool apply, bool Real)
             if (target->getVictim() && target->isAlive())
                 target->SetTargetGuid(target->getVictim()->GetObjectGuid());
 
-            WorldPacket data(SMSG_FORCE_MOVE_UNROOT, 8+4);
-            data << target->GetPackGUID();
-            data << uint32(0);
-            target->SendMessageToSet(&data, true);
+            target->SetRoot(false);
         }
 
         // Wyvern Sting
@@ -5473,7 +5470,7 @@ void Aura::HandleInvisibilityDetect(bool apply, bool Real)
             target->m_detectInvisibilityMask |= (1 << (*itr)->GetModifier()->m_miscvalue);
     }
     if (Real && target->GetTypeId()==TYPEID_PLAYER)
-        ((Player*)target)->GetCamera().UpdateVisibilityForOwner();
+        ((Player*)target)->GetCamera()->UpdateVisibilityForOwner();
 }
 
 void Aura::HandleDetectAmore(bool apply, bool /*real*/)
@@ -8915,8 +8912,8 @@ void Aura::PeriodicTick()
 
             target->getHostileRefManager().threatAssist(pCaster, float(gain) * 0.5f * sSpellMgr.GetSpellThreatMultiplier(spellProto), spellProto);
 
-            // heal for caster damage
-            if (target != pCaster && spellProto->SpellVisual[0] == 163)
+            // heal for caster damage (Health funnel only! spellProto->SpellVisual[0] == 163 wrong - some repair spells here!)
+            if (target != pCaster && spellProto->GetSpellFamilyFlags().test<CF_WARLOCK_HEALTH_FUNNEL>())
             {
                 uint32 dmg = spellProto->manaPerSecond;
                 if (pCaster->GetHealth() <= dmg && pCaster->GetTypeId()==TYPEID_PLAYER)
@@ -8929,11 +8926,13 @@ void Aura::PeriodicTick()
                 }
                 else
                 {
-                    damageInfo.damage = gain;
-                    damageInfo.absorb = 0;
-                    pCaster->DealDamageMods(&damageInfo);
-                    pCaster->SendSpellNonMeleeDamageLog(pCaster, GetId(), damageInfo.damage, GetSpellSchoolMask(spellProto), damageInfo.absorb, 0, false, 0, false);
-                    pCaster->DealDamage(pCaster, &damageInfo, true);
+                    DamageInfo funneldamageInfo = DamageInfo(pCaster, pCaster, spellProto);
+                    funneldamageInfo.damage = gain;
+                    funneldamageInfo.absorb = 0;
+                    funneldamageInfo.damageType = DOT;
+                    pCaster->DealDamageMods(&funneldamageInfo);
+                    pCaster->SendSpellNonMeleeDamageLog(pCaster, GetId(), funneldamageInfo.damage, GetSpellSchoolMask(spellProto), funneldamageInfo.absorb, 0, false, 0, false);
+                    pCaster->DealDamage(pCaster, &funneldamageInfo, true);
                 }
             }
 
@@ -12284,6 +12283,14 @@ void SpellAuraHolder::HandleSpellSpecificBoostsForward(bool apply)
                 }
                 break;
             }
+            // Improved Health Funnel (damage reducing part)
+            else if (m_spellProto->GetSpellFamilyFlags().test<CF_WARLOCK_HEALTH_FUNNEL>())
+            {
+                if (pCaster->HasAura(18703))
+                    linkedSet.insert(60955);
+                else if (pCaster->HasAura(18704))
+                    linkedSet.insert(60956);
+            }
             break;
         }
         case SPELLFAMILY_HUNTER:
@@ -12560,32 +12567,13 @@ void Aura::HandleAuraSetVehicle(bool apply, bool real)
 
     Unit* target = GetTarget();
 
-    if (target->GetTypeId() != TYPEID_PLAYER || !target->IsInWorld())
+    if (!target || !target->IsInWorld())
         return;
 
     uint32 vehicleId = GetMiscValue();
 
-    if (vehicleId == 0)
-        return;
+    target->SetVehicleId(apply ? vehicleId : 0);
 
-    if (apply)
-    {
-        target->SetVehicleId(vehicleId);
-    }
-    else
-        if (target->GetVehicleKit())
-            target->RemoveVehicleKit();
-
-    WorldPacket data(SMSG_SET_VEHICLE_REC_ID, target->GetPackGUID().size()+4);
-    data.appendPackGUID(target->GetObjectGuid());
-    data << uint32(apply ? vehicleId : 0);
-    target->SendMessageToSet(&data, true);
-
-    if (apply)
-    {
-        data.Initialize(SMSG_ON_CANCEL_EXPECTED_RIDE_VEHICLE_AURA, 0);
-        ((Player*)target)->GetSession()->SendPacket(&data);
-    }
 }
 
 void Aura::HandleAuraFactionChange(bool apply, bool real)

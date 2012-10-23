@@ -864,7 +864,7 @@ void BattleGround::EndBattleGround(Team winner)
     {
         winner_arena_team = sObjectMgr.GetArenaTeamById(GetArenaTeamIdForTeam(winner));
         loser_arena_team = sObjectMgr.GetArenaTeamById(GetArenaTeamIdForTeam(GetOtherTeam(winner)));
-        if (winner_arena_team && loser_arena_team)
+        if (winner_arena_team && loser_arena_team && winner_arena_team->GetId() != loser_arena_team->GetId())
         {
             loser_rating = loser_arena_team->GetBattleRating();
             winner_rating = winner_arena_team->GetBattleRating();
@@ -925,7 +925,7 @@ void BattleGround::EndBattleGround(Team winner)
         // if(!team) team = plr->GetTeam();
 
         // per player calculation
-        if (isArena() && isRated() && winner_arena_team && loser_arena_team)
+        if (isArena() && isRated() && winner_arena_team && loser_arena_team && winner_arena_team->GetId() != loser_arena_team->GetId())
         {
             if (team == winner)
             {
@@ -993,7 +993,7 @@ void BattleGround::EndBattleGround(Team winner)
         plr->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_BATTLEGROUND, 1);
     }
 
-    if (isArena() && isRated() && winner_arena_team && loser_arena_team)
+    if (isArena() && isRated() && winner_arena_team && loser_arena_team && winner_arena_team->GetId() != loser_arena_team->GetId())
     {
         // update arena points only after increasing the player's match count!
         // obsolete: winner_arena_team->UpdateArenaPointsHelper();
@@ -1997,7 +1997,9 @@ void BattleGround::HandleKillPlayer(Player* player, Player* killer)
         UpdatePlayerScore(killer, SCORE_HONORABLE_KILLS, 1);
         UpdatePlayerScore(killer, SCORE_KILLING_BLOWS, 1);
 
+        killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, 1);
         killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA, 1);
+        killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS, 1);
 
         for (BattleGroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
         {
