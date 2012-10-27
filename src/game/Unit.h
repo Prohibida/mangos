@@ -1284,7 +1284,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         virtual ~Unit ( );
 
         void AddToWorld();
-        void RemoveFromWorld(bool remove);
+        void RemoveFromWorld();
 
         void CleanupsBeforeDelete();                        // used in ~Creature/~Player (or before mass creature delete to remove cross-references to already deleted units)
 

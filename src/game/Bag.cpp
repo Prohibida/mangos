@@ -48,13 +48,13 @@ void Bag::AddToWorld()
             m_bagslot[i]->AddToWorld();
 }
 
-void Bag::RemoveFromWorld(bool remove)
+void Bag::RemoveFromWorld()
 {
     for (uint32 i = 0; i < GetBagSize(); ++i)
         if (m_bagslot[i])
-            m_bagslot[i]->RemoveFromWorld(remove);
+            m_bagslot[i]->RemoveFromWorld();
 
-    Item::RemoveFromWorld(remove);
+    Item::RemoveFromWorld();
 }
 
 bool Bag::Create(uint32 guidlow, uint32 itemid, Player const* owner)

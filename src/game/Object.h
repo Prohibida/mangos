@@ -73,7 +73,7 @@ class TerrainInfo;
 class Transport;
 class TransportInfo;
 
-typedef UNORDERED_MAP<ObjectGuid, UpdateData> UpdateDataMapType;
+typedef UNORDERED_MAP<Player*, UpdateData> UpdateDataMapType;
 
 //use this class to measure time between world update ticks
 //essential for units updating their spells after cells become active
@@ -130,7 +130,7 @@ class MANGOS_DLL_SPEC Object
             // synchronize values mirror with values array (changes will send in updatecreate opcode any way
             ClearUpdateMask(false);                         // false - we can't have update data in update queue before adding to world
         }
-        virtual void RemoveFromWorld(bool /*remove*/)
+        virtual void RemoveFromWorld()
         {
             // if we remove from world then sending changes not required
             ClearUpdateMask(true);
@@ -165,12 +165,6 @@ class MANGOS_DLL_SPEC Object
         virtual void BuildUpdateData(UpdateDataMapType& update_players);
         void MarkForClientUpdate();
         void SendForcedObjectUpdate();
-
-        virtual GuidSet const* GetObjectsUpdateQueue() { return NULL; };
-        bool IsMarkedForClientUpdate() const { return m_objectUpdated; };
-        virtual Object* GetDependentObject(ObjectGuid const& guid) { return NULL; };
-        virtual void RemoveUpdateObject(ObjectGuid const& guid) {};
-        virtual void AddUpdateObject(ObjectGuid const& guid) {};
 
         void SetFieldNotifyFlag(uint16 flag) { m_fieldNotifyFlags |= flag; }
         void RemoveFieldNotifyFlag(uint16 flag) { m_fieldNotifyFlags &= ~flag; }
@@ -451,9 +445,6 @@ class MANGOS_DLL_SPEC WorldObject : public Object
 
         void _Create(ObjectGuid guid, uint32 phaseMask);
 
-        void AddToWorld();
-        void RemoveFromWorld(bool remove);
-
         TransportInfo* GetTransportInfo() const { return m_transportInfo; }
         bool IsBoarded() const { return m_transportInfo != NULL; }
         void SetTransportInfo(TransportInfo* transportInfo) { m_transportInfo = transportInfo; }
@@ -562,7 +553,7 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         bool isInFront(WorldObject const* target,float distance, float arc = M_PI) const;
         bool isInBack(WorldObject const* target, float distance, float arc = M_PI) const;
 
-        virtual void CleanupsBeforeDelete();                   // used in destructor or explicitly before mass creature delete to remove cross-references to already deleted units
+        virtual void CleanupsBeforeDelete();                // used in destructor or explicitly before mass creature delete to remove cross-references to already deleted units
 
         virtual void SendMessageToSet(WorldPacket *data, bool self);
         virtual void SendMessageToSetInRange(WorldPacket *data, float dist, bool self);
@@ -612,9 +603,9 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         //obtain terrain data for map where this object belong...
         TerrainInfo const* GetTerrain() const;
 
-        void AddToClientUpdateList() override;
-        void RemoveFromClientUpdateList() override;
-        void BuildUpdateData(UpdateDataMapType &) override;
+        void AddToClientUpdateList();
+        void RemoveFromClientUpdateList();
+        void BuildUpdateData(UpdateDataMapType &);
 
         Creature* SummonCreature(uint32 id, float x, float y, float z, float ang,TempSummonType spwtype,uint32 despwtime, bool asActiveObject = false);
 
