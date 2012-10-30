@@ -1310,7 +1310,7 @@ void Unit::JustKilledCreature(Creature* victim)
     }
 
     // if victim is vehicle and has passengers - remove his
-    if (victim->GetObjectGuid().IsVehicle())
+    if (victim->IsVehicle())
     {
         if (victim->GetVehicleKit())
             victim->GetVehicleKit()->RemoveAllPassengers();
@@ -13171,7 +13171,7 @@ void Unit::ChangeSeat(int8 seatId, bool next)
         return;
 
     if (GetVehicle()->GetPassenger(seatId) &&
-       (!GetVehicle()->GetPassenger(seatId)->GetObjectGuid().IsVehicle() || !GetVehicle()->GetSeatInfo(GetVehicle()->GetPassenger(seatId))))
+       (!GetVehicle()->GetPassenger(seatId)->IsVehicle() || !GetVehicle()->GetSeatInfo(GetVehicle()->GetPassenger(seatId))))
         return;
 
     GetVehicle()->RemovePassenger(this);

@@ -10193,7 +10193,7 @@ void Aura::HandleAuraLinked(bool apply, bool Real)
     if (apply)
     {
         if (pCaster && pCaster->GetTypeId() == TYPEID_PLAYER &&
-            pTarget->GetObjectGuid().IsVehicle() &&
+            pTarget->IsVehicle() &&
             spellInfo->HasAttribute(SPELL_ATTR_EX_HIDDEN_AURA) &&
             spellInfo->HasAttribute(SPELL_ATTR_HIDE_IN_COMBAT_LOG))
         {

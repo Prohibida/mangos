@@ -181,7 +181,7 @@ void WorldSession::HandleEjectPassenger(WorldPacket &recv_data)
         if (((Creature*)passenger)->IsTemporarySummon())
         {
             // Fixme: delay must be calculated not from this, but from creature template parameters (off traders ...?).
-            uint32 delay = passenger->GetObjectGuid().IsVehicle() ? 1000: 60000;
+            uint32 delay = passenger->IsVehicle() ? 1000: 60000;
             ((TemporarySummon*)passenger)->UnSummon(delay);
         }
         else
