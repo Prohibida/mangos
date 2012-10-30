@@ -2184,10 +2184,10 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         // Vehicle system (over-aura operation)
         void EnterVehicle(Unit* base, int8 seatId = -1);
         void EnterVehicle(VehicleKitPtr vehicle, int8 seatId = -1);
-        void ExitVehicle();
+        void ExitVehicle(bool forceDismount = false);
         // Vehicle system (direct operation)
         void _EnterVehicle(VehicleKitPtr vehicle, int8 seatId = -1);
-        void _ExitVehicle();
+        void _ExitVehicle(bool forceDismount = false);
 
         void ChangeSeat(int8 seatId, bool next = true);
         VehicleKitPtr GetVehicle() const { return m_pVehicle; }

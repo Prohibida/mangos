@@ -10163,7 +10163,7 @@ void Aura::HandleAuraControlVehicle(bool apply, bool Real)
 
         if (caster->GetVehicle() && caster->GetVehicle() == target->GetVehicleKit())
         {
-            if (m_removeMode == AURA_REMOVE_BY_STACK)
+            if (m_removeMode == AURA_REMOVE_BY_STACK || m_removeMode == AURA_REMOVE_BY_TRACKING)
                 caster->GetVehicle()->RemovePassenger(caster, false);
             else
                 caster->_ExitVehicle();

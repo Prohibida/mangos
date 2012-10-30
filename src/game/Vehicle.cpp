@@ -178,6 +178,7 @@ bool VehicleKit::AddPassenger(Unit* passenger, int8 seatId)
 
     VehicleSeatEntry const* seatInfo = seat->second.seatInfo;
     seat->second.passenger = passenger->GetObjectGuid();
+    seat->second.b_dismount = true;
 
     if (!(seatInfo->m_flags & SEAT_FLAG_FREE_ACTION))
         passenger->addUnitState(UNIT_STAT_ON_VEHICLE);
@@ -406,7 +407,7 @@ void VehicleKit::RemovePassenger(Unit* passenger, bool dismount)
         if (((Creature*)passenger)->AI())
             ((Creature*)passenger)->AI()->EnteredVehicle(m_pBase, seat->first, false);
     }
-    if (dismount)
+    if (dismount && seat->second.b_dismount)
     {
         Dismount(passenger, seat->second.seatInfo);
         // only for flyable vehicles
@@ -625,4 +626,17 @@ Aura* VehicleKit::GetControlAura(Unit* passenger)
             return (*itr)();
     }
     return NULL;
+}
+
+void VehicleKit::DisableDismount(Unit* passenger)
+{
+    if (!passenger)
+        return;
+
+    int8 seatId = GetSeatId(passenger);
+
+    if (seatId == -1)
+        return;
+
+    m_Seats[seatId].b_dismount = false;
 }
