@@ -401,6 +401,17 @@ void Unit::Update( uint32 update_diff, uint32 p_time )
         setAttackTimer(OFF_ATTACK, (update_diff >= base_att ? 0 : base_att - update_diff) );
     }
 
+    if (IsVehicle())
+    {
+        // Initialize vehicle if not done
+        if (isAlive() && !GetVehicleKit()->IsInitialized())
+            GetVehicleKit()->Initialize();
+
+        // Update passenger positions if we are the first vehicle
+        if (!IsBoarded())
+            GetVehicleKit()->Update(update_diff);
+    }
+
     // update abilities available only for fraction of time
     UpdateReactives( update_diff );
 
@@ -520,71 +531,7 @@ bool Unit::SetPosition(float x, float y, float z, float orientation, bool telepo
     else if (turn)
         SetOrientation(orientation);
 
-    if ((relocate || turn) && GetVehicleKit())
-    {
-        if (m_movementInfo.HasMovementFlag(MOVEFLAG_ONTRANSPORT))
-        {
-            x += m_movementInfo.GetTransportPos()->x;
-            y += m_movementInfo.GetTransportPos()->y;
-            z += m_movementInfo.GetTransportPos()->z;
-            orientation += m_movementInfo.GetTransportPos()->o;
-        }
-        GetVehicleKit()->RelocatePassengers(x, y, z, orientation);
-    }
-
     return relocate || turn;
-}
-
-void Unit::SendMonsterMoveTransport(WorldObject *transport, SplineType type, SplineFlags flags, uint32 moveTime, ...)
-{
-    va_list vargs;
-    va_start(vargs, moveTime);
-
-    WorldPacket data(SMSG_MONSTER_MOVE_TRANSPORT, 60);
-    data << GetPackGUID();
-    data << transport->GetPackGUID();
-    data << uint8(m_movementInfo.GetTransportSeat());
-    data << uint8(GetTypeId() == TYPEID_PLAYER ? 1 : 0);       // bool, new in 3.1
-    data << float(transport->GetPositionX());
-    data << float(transport->GetPositionY());
-    data << float(transport->GetPositionZ());
-    data << uint32(WorldTimer::getMSTime());
-
-    data << uint8(type);                                    // spline type
-
-    switch(type)
-    {
-        case SPLINETYPE_NORMAL:                             // normal packet
-            break;
-        case SPLINETYPE_STOP:                               // stop packet (raw pos?)
-            va_end(vargs);
-            SendMessageToSet(&data, true);
-            return;
-        case SPLINETYPE_FACINGSPOT:                         // facing spot
-            data << float(va_arg(vargs,double));
-            data << float(va_arg(vargs,double));
-            data << float(va_arg(vargs,double));
-            break;
-        case SPLINETYPE_FACINGTARGET:
-            data << uint64(va_arg(vargs,uint64));
-            break;
-        case SPLINETYPE_FACINGANGLE:
-            data << float(va_arg(vargs,double));            // facing angle
-            break;
-    }
-
-    va_end(vargs);
-
-    data << uint32(flags);
-
-    data << uint32(moveTime);                               // Time in between points
-    data << uint32(1);                                      // 1 single waypoint
-
-    data << float(m_movementInfo.GetTransportPos()->x);
-    data << float(m_movementInfo.GetTransportPos()->y);
-    data << float(m_movementInfo.GetTransportPos()->z);
-
-    SendMessageToSet(&data, true);
 }
 
 void Unit::SendHeartBeat()
@@ -9436,7 +9383,7 @@ void Unit::Mount(uint32 mount, uint32 spellId, uint32 vehicleId, uint32 creature
             SetVehicleId(vehicleId);
             GetVehicleKit()->Reset();
             if (GetTypeId() != TYPEID_UNIT)
-                GetVehicleKit()->InstallAllAccessories(creatureEntry);
+                GetVehicleKit()->Initialize(creatureEntry);
         }
 
         WorldPacket data(SMSG_MOVE_SET_COLLISION_HGT, GetPackGUID().size() + 4 + 4);
@@ -9465,6 +9412,12 @@ void Unit::Unmount(bool from_aura)
         SendMessageToSet(&data, true);
     }
 
+    if (GetVehicleKit())
+    {
+        GetVehicleKit()->Reset();
+        SetVehicleId(0);
+    }
+
     // only resummon old pet if the player is already added to a map
     // this prevents adding a pet to a not created map which would otherwise cause a crash
     // (it could probably happen when logging in after a previous crash)
@@ -9484,9 +9437,6 @@ void Unit::Unmount(bool from_aura)
         else
             ((Player*)this)->ResummonPetTemporaryUnSummonedIfAny();
     }
-
-    if (GetVehicleKit())
-        SetVehicleId(0);
 }
 
 void Unit::SetInCombatWith(Unit* enemy)
@@ -10221,15 +10171,15 @@ void Unit::SetDeathState(DeathState s)
         GetUnitStateMgr().InitDefaults(false);
         StopMoving();
 
+        if (GetVehicleKit())
+            GetVehicleKit()->RemoveAllPassengers();
+
         ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
         ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
         // remove aurastates allowing special moves
         ClearAllReactives();
         ClearDiminishings();
         ProcDamageAndSpell(this, PROC_FLAG_NONE, PROC_FLAG_ON_DEATH, PROC_EX_NONE, 0);
-
-        if (GetVehicleKit())
-            GetVehicleKit()->RemoveAllPassengers();
     }
     else if (s == JUST_ALIVED)
     {
@@ -13131,12 +13081,12 @@ void Unit::ExitVehicle(bool forceDismount)
     if (!GetVehicle())
         return;
 
-    Creature* vehicleBase = (Creature*)GetVehicle()->GetBase();
+    Unit* vehicleBase = GetVehicle()->GetBase();
 
     if (!vehicleBase || !vehicleBase->IsInWorld())
     {
         sLog.outError("Unit::ExitVehicle: %s try leave vehicle, but no vehicle base in world!", GetObjectGuid().GetString().c_str());
-        m_pVehicle = VehicleKitPtr();
+        _ExitVehicle();
         return;
     }
 
@@ -13149,10 +13099,14 @@ void Unit::ExitVehicle(bool forceDismount)
         sLog.outDetail("Unit::ExitVehicle: unit %s leave vehicle %s but no control aura!", GetObjectGuid().GetString().c_str(), vehicleBase->GetObjectGuid().GetString().c_str());
     }
 
-    if (!(vehicleBase->GetVehicleInfo()->GetEntry()->m_flags & (VEHICLE_FLAG_NOT_DISMISS | VEHICLE_FLAG_ACCESSORY)) && vehicleBase->IsTemporarySummon())
+    if (vehicleBase->GetObjectGuid().IsAnyTypeCreature())
     {
-        if (!vehicleBase->HasAuraType(SPELL_AURA_CONTROL_VEHICLE))
-            vehicleBase->ForcedDespawn(1000);
+        if (!(vehicleBase->GetVehicleInfo()->GetEntry()->m_flags & (VEHICLE_FLAG_NOT_DISMISS | VEHICLE_FLAG_ACCESSORY)) 
+        && ((Creature*)vehicleBase)->IsTemporarySummon())
+        {
+            if (!vehicleBase->HasAuraType(SPELL_AURA_CONTROL_VEHICLE))
+                ((Creature*)vehicleBase)->ForcedDespawn(1000);
+        }
     }
 }
 
@@ -13161,21 +13115,25 @@ void Unit::ChangeSeat(int8 seatId, bool next)
     if (!GetVehicle())
         return;
 
+    Unit* vehicleBase = GetVehicle()->GetBase();
+
+    if (!vehicleBase || !vehicleBase->IsInWorld())
+    {
+        sLog.outError("Unit::ChangeSeat %s try change seat on vehicle, but no vehicle base in world!", GetObjectGuid().GetString().c_str());
+        _ExitVehicle();
+        return;
+    }
+
     if (seatId < 0)
     {
-        seatId = m_pVehicle->GetNextEmptySeatWithFlag(m_movementInfo.GetTransportSeat(), next);
+        seatId = GetVehicle()->GetNextEmptySeatWithFlag(m_movementInfo.GetTransportSeat(), next);
         if (seatId < 0)
             return;
     }
-    else if (seatId == m_movementInfo.GetTransportSeat() || !m_pVehicle->HasEmptySeat(seatId))
-        return;
 
-    if (GetVehicle()->GetPassenger(seatId) &&
-       (!GetVehicle()->GetPassenger(seatId)->IsVehicle() || !GetVehicle()->GetSeatInfo(GetVehicle()->GetPassenger(seatId))))
-        return;
-
-    GetVehicle()->RemovePassenger(this);
-    GetVehicle()->AddPassenger(this, seatId);
+    DEBUG_LOG("Unit::ChangeSeat player %s try change seat on vehicle %s (to %u).", GetObjectGuid().GetString().c_str(),GetVehicle()->GetBase()->GetObjectGuid().GetString().c_str(), seatId);
+    ExitVehicle(true);
+    EnterVehicle(vehicleBase, seatId);
 }
 
 void Unit::_EnterVehicle(VehicleKitPtr vehicle, int8 seatId)
@@ -13243,7 +13201,13 @@ void Unit::_ExitVehicle(bool forceDismount)
     if (!GetVehicle())
         return;
 
-    GetVehicle()->RemovePassenger(this, !forceDismount);
+    if (GetVehicle()->GetBase() && GetVehicle()->GetBase()->IsInWorld())
+        GetVehicle()->RemovePassenger(this, !forceDismount);
+    else
+    {
+        m_movementInfo.ClearTransportData();
+        m_movementInfo.RemoveMovementFlag(MOVEFLAG_ONTRANSPORT);
+    }
 
     m_pVehicle = VehicleKitPtr(NULL);
     clearUnitState(UNIT_STAT_ON_VEHICLE);
@@ -13869,7 +13833,10 @@ void Unit::UpdateSplineMovement(uint32 t_diff)
         m_movesplineTimer.Reset(POSITION_UPDATE_DELAY);
         Movement::Location loc = movespline->ComputePosition();
 
-        SetPosition(loc.x,loc.y,loc.z,loc.orientation);
+        if (IsBoarded())
+            GetTransportInfo()->SetLocalPosition(loc.x, loc.y, loc.z, loc.orientation);
+        else
+            SetPosition(loc.x,loc.y,loc.z,loc.orientation);
     }
 }
 

@@ -49,16 +49,9 @@ void WorldSession::HandleDismissControlledVehicle(WorldPacket &recv_data)
     if (!vehicle || !vehicle->GetVehicleInfo())
         return;
 
-    if (vehicle->GetVehicleInfo()->GetEntry()->m_flags & (VEHICLE_FLAG_NOT_DISMISS | VEHICLE_FLAG_ACCESSORY))
-        dismiss = false;
-
     GetPlayer()->m_movementInfo = mi;
 
-    if (!vehicle->RemoveSpellsCausingAuraByCaster(SPELL_AURA_CONTROL_VEHICLE, GetPlayer()->GetObjectGuid()))
-        GetPlayer()->ExitVehicle();
-
-    if (dismiss)
-        vehicle->ForcedDespawn(1000);
+    GetPlayer()->ExitVehicle();
 
 }
 
