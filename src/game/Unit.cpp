@@ -10202,7 +10202,7 @@ void Unit::SetDeathState(DeathState s)
 {
     if (s != ALIVE && s!= JUST_ALIVED)
     {
-        ExitVehicle(true);
+        ExitVehicle();
         CombatStop();
         DeleteThreatList();
         ClearComboPointHolders();                           // any combo points pointed to unit lost at it death
@@ -11296,7 +11296,7 @@ void Unit::CleanupsBeforeDelete()
     if (m_uint32Values)                                      // only for fully created object
     {
         if (GetVehicle())
-            ExitVehicle(true);
+            ExitVehicle();
         if (GetVehicleKit())
             RemoveVehicleKit();
         InterruptNonMeleeSpells(true);
@@ -12972,7 +12972,7 @@ void Unit::NearTeleportTo( float x, float y, float z, float orientation, bool ca
         ((Player*)this)->TeleportTo(GetMapId(), x, y, z, orientation, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NOT_LEAVE_COMBAT | TELE_TO_NOT_UNSUMMON_PET | (casting ? TELE_TO_SPELL : 0));
     else
     {
-        ExitVehicle(true);
+        ExitVehicle();
         GetMap()->CreatureRelocation((Creature*)this, x, y, z, orientation);
         SendHeartBeat();
     }
@@ -13123,33 +13123,19 @@ void Unit::EnterVehicle(Unit* vehicleBase, int8 seatId)
     DEBUG_LOG("Unit::EnterVehicle: unit %s enter vehicle %s with control aura %u", GetObjectGuid().GetString().c_str(), vehicleBase->GetObjectGuid().GetString().c_str(),spellInfo->Id);
 }
 
-void Unit::ExitVehicle(bool forceDismount)
+void Unit::ExitVehicle()
 {
     if (!GetVehicle())
         return;
+    Unit* vehicleBase = GetVehicle()->GetBase();
 
-    Creature* vehicleBase = (Creature*)GetVehicle()->GetBase();
-
-    if (!vehicleBase || !vehicleBase->IsInWorld())
-    {
-        sLog.outError("Unit::ExitVehicle: %s try leave vehicle, but no vehicle base in world!", GetObjectGuid().GetString().c_str());
-        m_pVehicle = VehicleKitPtr();
+    if (!vehicleBase)
         return;
-    }
-
-    if (forceDismount)
-        GetVehicle()->DisableDismount(this);
 
     if (!vehicleBase->RemoveSpellsCausingAuraByCaster(SPELL_AURA_CONTROL_VEHICLE, GetObjectGuid()))
     {
-        _ExitVehicle(forceDismount);
+        _ExitVehicle();
         sLog.outDetail("Unit::ExitVehicle: unit %s leave vehicle %s but no control aura!", GetObjectGuid().GetString().c_str(), vehicleBase->GetObjectGuid().GetString().c_str());
-    }
-
-    if (!(vehicleBase->GetVehicleInfo()->GetEntry()->m_flags & (VEHICLE_FLAG_NOT_DISMISS | VEHICLE_FLAG_ACCESSORY)) && vehicleBase->IsTemporarySummon())
-    {
-        if (!vehicleBase->HasAuraType(SPELL_AURA_CONTROL_VEHICLE))
-            vehicleBase->ForcedDespawn(1000);
     }
 }
 
@@ -13235,12 +13221,12 @@ void Unit::_EnterVehicle(VehicleKitPtr vehicle, int8 seatId)
     }
 }
 
-void Unit::_ExitVehicle(bool forceDismount)
+void Unit::_ExitVehicle()
 {
     if (!GetVehicle())
         return;
 
-    GetVehicle()->RemovePassenger(this, !forceDismount);
+    GetVehicle()->RemovePassenger(this, true);
 
     m_pVehicle = VehicleKitPtr(NULL);
     clearUnitState(UNIT_STAT_ON_VEHICLE);

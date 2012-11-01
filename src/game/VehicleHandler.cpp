@@ -31,7 +31,7 @@
 void WorldSession::HandleDismissControlledVehicle(WorldPacket &recv_data)
 {
     DEBUG_LOG("WORLD: Received CMSG_DISMISS_CONTROLLED_VEHICLE");
-    //recv_data.hexlike();
+    recv_data.hexlike();
 
     ObjectGuid guid;
     MovementInfo mi;
@@ -94,7 +94,7 @@ void WorldSession::HandleRequestVehicleNextSeat(WorldPacket &recv_data)
 void WorldSession::HandleRequestVehicleSwitchSeat(WorldPacket &recv_data)
 {
     DEBUG_LOG("WORLD: Received CMSG_REQUEST_VEHICLE_SWITCH_SEAT");
-    //recv_data.hexlike();
+    recv_data.hexlike();
 
     ObjectGuid guid;
     recv_data >> guid.ReadAsPacked();
@@ -127,7 +127,7 @@ void WorldSession::HandleRequestVehicleSwitchSeat(WorldPacket &recv_data)
 void WorldSession::HandleEnterPlayerVehicle(WorldPacket &recv_data)
 {
     DEBUG_LOG("WORLD: Received CMSG_RIDE_VEHICLE_INTERACT");
-    //recv_data.hexlike();
+    recv_data.hexlike();
 
     ObjectGuid guid;
     recv_data >> guid;
@@ -152,10 +152,12 @@ void WorldSession::HandleEnterPlayerVehicle(WorldPacket &recv_data)
 
 void WorldSession::HandleEjectPassenger(WorldPacket &recv_data)
 {
-    //recv_data.hexlike();
+    recv_data.hexlike();
 
     ObjectGuid guid;
     recv_data >> guid;
+
+    DEBUG_LOG("WORLD: Received CMSG_CONTROLLER_EJECT_PASSENGER %s",guid.GetString().c_str());
 
     Unit* passenger = ObjectAccessor::GetUnit(*GetPlayer(), guid);
 
@@ -171,7 +173,6 @@ void WorldSession::HandleEjectPassenger(WorldPacket &recv_data)
         sLog.outError("WorldSession::HandleEjectPassenger %s try eject %s, but not may do this!",GetPlayer()->GetObjectGuid().GetString().c_str(),guid.GetString().c_str());
         return;
     }
-    DEBUG_LOG("WorldSession::HandleEjectPassenger CMSG_CONTROLLER_EJECT_PASSENGER %s eject passenger %s",GetPlayer()->GetObjectGuid().GetString().c_str(),guid.GetString().c_str());
 
     GetPlayer()->RemoveSpellsCausingAura(SPELL_AURA_CONTROL_VEHICLE, guid);
 
@@ -191,8 +192,8 @@ void WorldSession::HandleEjectPassenger(WorldPacket &recv_data)
 
 void WorldSession::HandleChangeSeatsOnControlledVehicle(WorldPacket &recv_data)
 {
-    //sLog.outDebug("WORLD: Recvd CMSG_CHANGE_SEATS_ON_CONTROLLED_VEHICLE");
-    //recv_data.hexlike();
+    sLog.outDebug("WORLD: Recvd CMSG_CHANGE_SEATS_ON_CONTROLLED_VEHICLE");
+    recv_data.hexlike();
 
     ObjectGuid guid, guid2;
     recv_data >> guid.ReadAsPacked();
@@ -216,18 +217,15 @@ void WorldSession::HandleChangeSeatsOnControlledVehicle(WorldPacket &recv_data)
     pVehicle->GetBase()->m_movementInfo = mi;
 
     if(!guid2 || guid.GetRawValue() == guid2.GetRawValue())
-    {
-        DEBUG_LOG("WorldSession::HandleChangeSeatsOnControlledVehicle player %s change seat on %s (to %u).",GetPlayer()->GetObjectGuid().GetString().c_str(),guid.GetString().c_str(), seatId);
         GetPlayer()->ChangeSeat(seatId);
-    }
     // seat to another vehicle or accessory
-    if (Unit* vehicle = GetPlayer()->GetMap()->GetUnit(guid2))
+    else if (guid2.IsVehicle())
     {
-        if (vehicle->IsInWorld() && vehicle->IsVehicle())
+        if (Creature* vehicle = GetPlayer()->GetMap()->GetAnyTypeCreature(guid2))
         {
-            DEBUG_LOG("WorldSession::HandleChangeSeatsOnControlledVehicle player %s try move from %s, to %s (seat %u).",GetPlayer()->GetObjectGuid().GetString().c_str(),guid.GetString().c_str(),guid2.GetString().c_str(), seatId);
-            GetPlayer()->ExitVehicle(true);
+            GetPlayer()->ExitVehicle();
             GetPlayer()->EnterVehicle(vehicle, seatId);
+            DEBUG_LOG("WorldSession::HandleChangeSeatsOnControlledVehicle player %s try seat on vehicle %s, seat %u.",GetPlayer()->GetObjectGuid().GetString().c_str(),guid2.GetString().c_str(), seatId);
         }
     }
 }
