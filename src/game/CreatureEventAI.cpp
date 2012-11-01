@@ -1270,7 +1270,7 @@ inline Unit* CreatureEventAI::GetTargetByType(uint32 Target, Unit* pActionInvoke
 
         case TARGET_T_VEHICLE_PASSENGER:
         {
-            if (m_creature->IsVehicle())
+            if (m_creature->GetObjectGuid().IsVehicle())
             for (int8 seatId = 0; seatId < MAX_VEHICLE_SEAT; ++seatId)
                 if (Unit* passenger = m_creature->GetVehicleKit()->GetPassenger(seatId))
                     return passenger;
@@ -1285,7 +1285,7 @@ inline Unit* CreatureEventAI::GetTargetByType(uint32 Target, Unit* pActionInvoke
         case TARGET_T_VEHICLE_PASSENGER_6:
         case TARGET_T_VEHICLE_PASSENGER_7:
         {
-            if (m_creature->IsVehicle())
+            if (m_creature->GetObjectGuid().IsVehicle())
                 if (Unit* passenger = m_creature->GetVehicleKit()->GetPassenger(Target - TARGET_T_VEHICLE_PASSENGER_0))
                     return passenger;
             break;

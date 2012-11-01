@@ -1440,7 +1440,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void Unmount(bool from_aura = false);
 
         VehicleInfo* GetVehicleInfo() { return m_vehicleInfo; }
-        virtual bool IsVehicle() const override { return m_vehicleInfo != NULL; }
+        bool IsVehicle() const { return m_vehicleInfo != NULL; }
         void SetVehicleId(uint32 entry);
 
         uint16 GetMaxSkillValueForLevel(Unit const* target = NULL) const { return (target ? GetLevelForTarget(target) : getLevel()) * 5; }
