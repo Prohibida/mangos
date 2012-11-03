@@ -1229,14 +1229,14 @@ bool Item::IsBindedNotWith(Player const* player) const
 
 void Item::AddToClientUpdateList()
 {
-    if (Player* pPlayer = GetOwner())
-        pPlayer->AddUpdateObject(GetObjectGuid());
+    if (Player* pl = GetOwner())
+        pl->GetMap()->AddUpdateObject(this);
 }
 
 void Item::RemoveFromClientUpdateList()
 {
-    if (Player* pPlayer = GetOwner())
-        pPlayer->RemoveUpdateObject(GetObjectGuid());
+    if (Player* pl = GetOwner())
+        pl->GetMap()->RemoveUpdateObject(this);
 }
 
 void Item::BuildUpdateData(UpdateDataMapType& update_players)
@@ -1619,14 +1619,4 @@ bool Item::CheckSoulboundTradeExpire(Player* owner)
     }
 
     return false;
-}
-
-void Item::AddToWorld()
-{
-    Object::AddToWorld();
-}
-
-void Item::RemoveFromWorld(bool remove)
-{
-    Object::RemoveFromWorld(remove);
 }

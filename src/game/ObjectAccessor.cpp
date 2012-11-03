@@ -42,7 +42,7 @@ ObjectAccessor::~ObjectAccessor()
 {
     for(Player2CorpsesMapType::const_iterator itr = i_player2corpse.begin(); itr != i_player2corpse.end(); ++itr)
     {
-        itr->second->RemoveFromWorld(true);
+        itr->second->RemoveFromWorld();
         delete itr->second;
     }
 }
@@ -147,11 +147,9 @@ ObjectAccessor::RemoveCorpse(Corpse *corpse)
     uint32 cell_id = (cell_pair.y_coord*TOTAL_NUMBER_OF_CELLS_PER_MAP) + cell_pair.x_coord;
 
     sObjectMgr.DeleteCorpseCellData(corpse->GetMapId(), cell_id, corpse->GetOwnerGuid().GetCounter());
-    corpse->RemoveFromWorld(true);
-    i_player2corpse.erase(iter);
+    corpse->RemoveFromWorld();
 
-    // need recheck - may be need free memory in this place
-    //delete corpse;
+    i_player2corpse.erase(iter);
 }
 
 void

@@ -54,7 +54,7 @@ class Corpse : public WorldObject
         ~Corpse();
 
         void AddToWorld();
-        virtual void RemoveFromWorld(bool remove) override;
+        void RemoveFromWorld();
 
         bool Create(uint32 guidlow);
         bool Create(uint32 guidlow, Player* owner);

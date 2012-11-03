@@ -66,7 +66,7 @@ class MANGOS_DLL_SPEC Camera
         void Event_ViewPointVisibilityChanged();
 
         Player& m_owner;
-        ObjectGuid m_sourceGuid;
+        WorldObject* m_source;
 
         void UpdateForCurrentViewPoint();
 
@@ -82,7 +82,7 @@ class MANGOS_DLL_SPEC ViewPoint
 {
         friend class Camera;
 
-        typedef GuidSet CameraList;
+        typedef std::set<Camera*> CameraList;
 
         CameraList          m_cameras;
         GridType*           m_grid;
@@ -91,7 +91,17 @@ class MANGOS_DLL_SPEC ViewPoint
         void Attach(Camera* camera);
         void Detach(Camera* camera);
 
-        void CameraCall(void (Camera::*handler)());
+        void CameraCall(void (Camera::*handler)())
+        {
+            if (!m_cameras.empty())
+            {
+                for (CameraList::iterator itr = m_cameras.begin(); itr != m_cameras.end();)
+                {
+                    if (Camera *c = *(itr++))
+                        (c->*handler)();
+                }
+            }
+        }
 
     public:
 
