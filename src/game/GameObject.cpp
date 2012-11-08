@@ -1390,10 +1390,6 @@ void GameObject::Use(Unit* user)
                 SetGoState(GO_STATE_READY);
                 SetActiveObjectState(true);
             }
-
-            // activate script
-            if (!scriptReturnValue)
-                GetMap()->ScriptsStart(sGameObjectScripts, GetGUIDLow(), spellCaster, this);
             return;
         }
         case GAMEOBJECT_TYPE_FISHINGNODE:                   // 17 fishing bobber
