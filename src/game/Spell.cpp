@@ -1550,7 +1550,7 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
     }
 
     // now apply all created auras
-    if (m_spellAuraHolder)
+    if (m_spellAuraHolder && m_spellAuraHolder->GetTarget() == unit)
     {
         // normally shouldn't happen
         if (!m_spellAuraHolder->IsEmptyHolder())
@@ -1581,6 +1581,13 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
             unit->AddSpellAuraHolder(m_spellAuraHolder);
             m_spellAuraHolder->SetInUse(false);
         }
+    }
+    else if (m_spellAuraHolder)
+    {
+        DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST,"Spell::DoSpellHitOnUnit spell %u caster %s cannot apply spellauraholder to %s due to different targets.",
+            m_spellInfo->Id,
+            realCaster->GetObjectGuid().GetString().c_str(),
+            unit->GetObjectGuid().GetString().c_str());
     }
 }
 
