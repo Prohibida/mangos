@@ -4679,6 +4679,10 @@ void Spell::EffectForceCast(SpellEffectIndex eff_idx)
     if (!unitTarget)
         return;
 
+    Unit* caster = GetAffectiveUnitCaster();
+    if (!caster)
+        return;
+
     uint32 triggered_spell_id = m_spellInfo->EffectTriggerSpell[eff_idx];
 
     // normal case
@@ -4686,7 +4690,7 @@ void Spell::EffectForceCast(SpellEffectIndex eff_idx)
 
     if (!spellInfo)
     {
-        sLog.outError("Spell::EffectForceCast of spell %u: triggering unknown spell %u (caster %s)", m_spellInfo->Id, triggered_spell_id, m_caster ? m_caster->GetObjectGuid().GetString().c_str() : "<none>");
+        sLog.outError("Spell::EffectForceCast of spell %u: triggering unknown spell %u (caster %s)", m_spellInfo->Id, triggered_spell_id, caster ? caster->GetObjectGuid().GetString().c_str() : "<none>");
         return;
     }
 
@@ -4713,7 +4717,7 @@ void Spell::EffectForceCast(SpellEffectIndex eff_idx)
         }
     }
 
-    unitTarget->CastSpell(b_castBack ? m_caster : unitTarget, spellInfo, true, m_CastItem, NULL, b_castBack ? ObjectGuid() : m_originalCasterGUID, m_spellInfo);
+    unitTarget->CastSpell(b_castBack ? caster : unitTarget, spellInfo, true, m_CastItem, NULL, b_castBack ? unitTarget->GetObjectGuid() : m_originalCasterGUID, m_spellInfo);
 }
 
 void Spell::EffectTriggerSpell(SpellEffectIndex effIndex)
