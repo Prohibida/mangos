@@ -386,6 +386,7 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         void ScriptsProcess();
 
         void SendObjectUpdates();
+
         GuidSet i_objectsToClientUpdate;
 
         LoadingObjectsQueue i_loadingObjectQueue;
