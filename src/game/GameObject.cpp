@@ -1390,6 +1390,7 @@ void GameObject::Use(Unit* user)
                 SetGoState(GO_STATE_READY);
                 SetActiveObjectState(true);
             }
+
             return;
         }
         case GAMEOBJECT_TYPE_FISHINGNODE:                   // 17 fishing bobber
