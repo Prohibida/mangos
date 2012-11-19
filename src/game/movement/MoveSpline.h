@@ -34,6 +34,23 @@ namespace Movement
         float orientation;
     };
 
+    enum
+    {
+        minimal_duration = 1,
+    };
+
+    struct CommonInitializer
+    {
+        CommonInitializer(float _velocity) : velocityInv(1000.f / _velocity), time(minimal_duration) {}
+        float velocityInv;
+        int32 time;
+        inline int32 operator()(Spline<int32>& s, int32 i)
+        {
+            time += (s.SegLength(i) * velocityInv);
+            return time;
+        }
+    };
+
     // MoveSpline represents smooth catmullrom or linear curve and point that moves belong it
     // curve can be cyclic - in this case movement will be cyclic
     // point can have vertical acceleration motion componemt(used in fall, parabolic movement)
@@ -49,6 +66,7 @@ namespace Movement
                 Result_NextSegment  = 0x08,
             };
             friend class PacketBuilder;
+
         protected:
             MySpline        spline;
 
