@@ -12636,12 +12636,7 @@ void Spell::EffectBind(SpellEffectIndex eff_idx)
         loc.SetOrientation(st->target_Orientation);
     }
     else
-    {
-        player->GetPosition(loc);
-        area_id = player->GetAreaId();
-    }
-
-    player->SetHomebindToLocation(loc,area_id);
+        loc = player->GetPosition();
 
     player->SetHomebindToLocation(loc);
     uint32 area_id = loc.GetAreaId();

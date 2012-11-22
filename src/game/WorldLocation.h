@@ -58,12 +58,12 @@ struct MANGOS_DLL_SPEC Position
 
     virtual bool HasMap() const { return false; };
 
-    bool operator == (Position const &pos) const
+    bool operator == (Position const& pos) const
     {
-        return ((x - pos.x < M_NULL_F)
-            && (y - pos.y < M_NULL_F)
-            && (z - pos.z < M_NULL_F));
-    }
+        return ((fabs(x - pos.x) < M_NULL_F)
+            && (fabs(y - pos.y) < M_NULL_F)
+            && (fabs(z - pos.z) < M_NULL_F));
+    };
 };
 
 class WorldObject;
@@ -92,22 +92,42 @@ struct MANGOS_DLL_SPEC WorldLocation : public Position
         : Position(loc.coord_x, loc.coord_y, loc.coord_z, loc.orientation), mapid(loc.mapid), instance(loc.instance), realmid(loc.realmid)
     {}
 
-    ~WorldLocation() {};
+    WorldLocation(WorldObject const& object);
 
-    bool operator == (WorldLocation const &loc) const
-    {
-        return (realmid    == loc.realmid
-            && mapid       == loc.mapid
-            && instance    == loc.instance
-            && (coord_x - loc.coord_x < M_NULL_F)
-            && (coord_y - loc.coord_y < M_NULL_F)
-            && (coord_z - loc.coord_z < M_NULL_F));
-    }
+    virtual ~WorldLocation() 
+    {};
+
+    bool operator == (WorldLocation const& loc) const;
 
     virtual bool HasMap() const override
     {
         return mapid >= 0;
     }
+
     Position const& GetPosition() { return *this; };
+
+    uint32 GetZoneId() const;
+    uint32 GetAreaId() const;
+
+    uint32 GetRealmId()    const { return realmid; };
+    uint32 GetMapId()      const { return HasMap() ? abs(mapid) :  451; /*Programmers Isle. possible need assert here.*/ };
+    uint32 GetInstanceId() const { return HasMap() ? instance :  0; };
+
+
+    void SetMapId(uint32 value);
+    void SetInstanceId(uint32 value)  { instance = value; };
+    //void SetRealmId(uint32 value)   { realmid  = value; }; // Currently not need make realm switch - awaiting multirealm implement.
+
+    bool IsValidMapCoord(WorldLocation const& loc);
+
+    void SetOrientation(float value);
+
+    WorldLocation& operator = (WorldLocation const& loc);
+
+    private:
+    int32     mapid;                      // mapid    = -1 for not fully initialized WorldLocation
+    uint32    instance;                   // instance = 0  for not fully initialized WorldLocation ("current instance")
+    uint32    realmid;                    // realmid  = 0  for "always current realm". 
+
 };
 #endif
