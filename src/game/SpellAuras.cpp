@@ -2338,8 +2338,6 @@ void Aura::TriggerSpell()
                 return;
             case 38280:                                     // Static Charge (Lady Vashj in Serpentshrine Cavern)
             case 53563:                                     // Beacon of Light
-            case 52658:                                     // Static Overload (normal&heroic) (Ionar in Halls of Lightning)
-            case 59795:
                 // original caster must be target
                 target->CastSpell(target, trigger_spell_id, true, NULL, this, target->GetObjectGuid());
                 return;
@@ -3377,6 +3375,20 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 if (m_removeMode == AURA_REMOVE_BY_DEATH)
                     target->CastSpell(target, GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_0), true);
 
+                return;
+            }
+            case 64398:                                     // Summon Scrap Bot (Ulduar, Mimiron) - for Scrap Bots
+            case 64426:                                     // Summon Scrap Bot (Ulduar, Mimiron) - for Assault Bots
+            case 64621:                                     // Summon Fire Bot (Ulduar, Mimiron)
+            {
+                uint32 triggerSpell = 0;
+                switch (GetId())
+                {
+                    case 64398: triggerSpell = 63819; break;
+                    case 64426: triggerSpell = 64427; break;
+                    case 64621: triggerSpell = 64622; break;
+                }
+                target->CastSpell(target, triggerSpell, false);
                 return;
             }
             case 68839:                                     // Corrupt Soul
