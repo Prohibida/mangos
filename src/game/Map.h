@@ -334,10 +334,8 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         void RemoveGameObjectModel(const GameObjectModel& mdl);
         bool ContainsGameObjectModel(const GameObjectModel& mdl) const;
 
-        void AddLoadingObject(LoadingObjectQueueMember* obj)
-        {
-            i_loadingObjectQueue.push(obj);
-        }
+        void AddLoadingObject(LoadingObjectQueueMember* obj);
+        LoadingObjectQueueMember* GetNextLoadingObject();
         LoadingObjectsQueue const& GetLoadingObjectsQueue() { return i_loadingObjectQueue; };
         bool IsLoadingObjectsQueueEmpty() const { return i_loadingObjectQueue.empty(); };
 
@@ -374,6 +372,7 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         {
             MANGOS_ASSERT(x < MAX_NUMBER_OF_GRIDS);
             MANGOS_ASSERT(y < MAX_NUMBER_OF_GRIDS);
+            ReadGuard Guard(const_cast<Map*>(this)->GetLock(MAP_LOCK_TYPE_MAPOBJECTS));
             return i_grids[x][y];
         }
 
@@ -527,7 +526,7 @@ Map::Visit(const Cell& cell, TypeContainerVisitor<T, CONTAINER> &visitor)
     const uint32 cell_x = cell.CellX();
     const uint32 cell_y = cell.CellY();
 
-    if( !cell.NoCreate() || loaded(GridPair(x,y)) )
+    if (!cell.NoCreate() || loaded(GridPair(x,y)))
     {
         EnsureGridLoaded(cell);
         getNGrid(x, y)->Visit(cell_x, cell_y, visitor);
