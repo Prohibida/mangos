@@ -192,7 +192,6 @@ void GlobalCooldownMgr::CancelGlobalCooldown(SpellEntry const* spellInfo)
 // Methods of class Unit
 
 Unit::Unit() :
-    movespline(new Movement::MoveSpline()),
     m_charmInfo(NULL),
     i_motionMaster(this),
     m_ThreatManager(this),
@@ -4342,7 +4341,7 @@ void Unit::SetInFront(Unit const* target)
 
 void Unit::SetFacingTo(float ori)
 {
-    Movement::MoveSplineInit init(*this);
+    Movement::MoveSplineInit<Unit*> init(*this);
     init.SetFacing(ori);
     init.Launch();
 }
@@ -12361,7 +12360,7 @@ void Unit::StopMoving()
     if (!IsInWorld())
         return;
 
-    Movement::MoveSplineInit init(*this);
+    Movement::MoveSplineInit<Unit*> init(*this);
     init.SetFacing(GetOrientation());
     init.Launch();
 }

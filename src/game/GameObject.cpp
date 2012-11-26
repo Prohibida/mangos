@@ -44,6 +44,8 @@
 #include "vmap/DynamicTree.h"
 #include "SQLStorages.h"
 #include <G3D/Quat.h>
+#include "movement/MoveSplineInit.h"
+#include "movement/MoveSpline.h"
 
 
 GameObject::GameObject() : WorldObject(),
@@ -241,6 +243,7 @@ void GameObject::Update(uint32 update_diff, uint32 p_time)
     {
         //GetTransportKit()->Update(update_diff, diff);
         //DEBUG_LOG("Transport::Update %s", GetObjectGuid().GetString().c_str());
+        UpdateSplineMovement(p_time);
         return;
     }
 
@@ -562,6 +565,36 @@ void GameObject::Update(uint32 update_diff, uint32 p_time)
 
             break;
         }
+    }
+}
+
+void GameObject::UpdateSplineMovement(uint32 t_diff)
+{
+    enum
+    {
+        POSITION_UPDATE_DELAY = 400,
+    };
+
+    if (movespline->Finalized())
+        return;
+
+    movespline->updateState(t_diff);
+    bool arrived = movespline->Finalized();
+/*
+    if (arrived)
+        Script run on_arrived;
+*/
+    m_movesplineTimer.Update(t_diff);
+
+    if (m_movesplineTimer.Passed() || arrived)
+    {
+        m_movesplineTimer.Reset(POSITION_UPDATE_DELAY);
+        Movement::Location loc = movespline->ComputePosition();
+
+        if (IsBoarded())
+            GetTransportInfo()->SetLocalPosition(loc.x, loc.y, loc.z, loc.orientation);
+        else
+            Relocate(loc.x,loc.y,loc.z,loc.orientation);
     }
 }
 

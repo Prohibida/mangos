@@ -418,6 +418,11 @@ class MANGOS_DLL_SPEC Object
 
 struct WorldObjectChangeAccumulator;
 
+namespace Movement
+{
+    class MoveSpline;
+};
+
 class MANGOS_DLL_SPEC WorldObject : public Object
 {
     friend struct WorldObjectChangeAccumulator;
@@ -656,6 +661,10 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         void AddEvent(BasicEvent* Event, uint64 e_time, bool set_addtime = true);
 
         virtual bool IsVehicle() const { return false; }
+
+        // Movement
+        Movement::MoveSpline* movespline;
+        ShortTimeTracker m_movesplineTimer;
 
     protected:
         explicit WorldObject();

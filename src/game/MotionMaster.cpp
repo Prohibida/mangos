@@ -322,7 +322,7 @@ bool MotionMaster::empty()
 
 void MotionMaster::MoveJump(float x, float y, float z, float horizontalSpeed, float max_height, uint32 id)
 {
-    Movement::MoveSplineInit init(*m_owner);
+    Movement::MoveSplineInit<Unit*> init(*m_owner);
     init.MoveTo(x,y,z);
     init.SetParabolic(max_height, 0);
     init.SetVelocity(horizontalSpeed);
@@ -332,7 +332,7 @@ void MotionMaster::MoveJump(float x, float y, float z, float horizontalSpeed, fl
 
 void MotionMaster::MoveToDestination(float x, float y, float z, float o, Unit* target, float horizontalSpeed, float max_height, uint32 id)
 {
-    Movement::MoveSplineInit init(*m_owner);
+    Movement::MoveSplineInit<Unit*> init(*m_owner);
     init.MoveTo(x,y,z, bool(target), bool(target));
     if (max_height > M_NULL_F)
         init.SetParabolic(max_height, 0);
@@ -347,7 +347,7 @@ void MotionMaster::MoveToDestination(float x, float y, float z, float o, Unit* t
 
 void MotionMaster::MoveSkyDiving(float x, float y, float z, float o, float horizontalSpeed, float max_height, bool eject)
 {
-    Movement::MoveSplineInit init(*m_owner);
+    Movement::MoveSplineInit<Unit*> init(*m_owner);
     init.MoveTo(x,y,z,false, true);
     init.SetParabolic(max_height, 0);
     init.SetVelocity(horizontalSpeed);
@@ -360,7 +360,7 @@ void MotionMaster::MoveSkyDiving(float x, float y, float z, float o, float horiz
 
 void MotionMaster::MoveBoardVehicle(float x, float y, float z, float o, float horizontalSpeed, float max_height)
 {
-    Movement::MoveSplineInit init(*m_owner);
+    Movement::MoveSplineInit<Unit*> init(*m_owner);
     init.MoveTo(x,y,z,false, true);
     init.SetParabolic(max_height, 0);
     init.SetVelocity(horizontalSpeed);
@@ -373,7 +373,7 @@ void MotionMaster::MoveBoardVehicle(float x, float y, float z, float o, float ho
 
 void MotionMaster::MoveWithSpeed(float x, float y, float z, float speed, bool generatePath, bool forceDestination)
 {
-    Movement::MoveSplineInit init(*m_owner);
+    Movement::MoveSplineInit<Unit*> init(*m_owner);
     init.MoveTo(x,y,z, generatePath, forceDestination);
     init.SetVelocity(speed);
     init.Launch();
@@ -395,7 +395,7 @@ void MotionMaster::MoveFall()
     if (fabs(m_owner->GetPositionZ() - tz) < 0.1f)
         return;
 
-    Movement::MoveSplineInit init(*m_owner);
+    Movement::MoveSplineInit<Unit*> init(*m_owner);
     init.MoveTo(m_owner->GetPositionX(),m_owner->GetPositionY(),tz);
     init.SetFall();
     init.Launch();

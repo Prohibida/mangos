@@ -793,6 +793,8 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
         Team GetTeam() const;
         bool SetTeam(Team team);
 
+        void UpdateSplineMovement(uint32 t_diff);
+
         GameObjectModel* m_model;
 
     protected:
