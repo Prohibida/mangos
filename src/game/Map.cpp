@@ -229,13 +229,10 @@ void Map::setUnitCell(Creature* obj)
 void
 Map::EnsureGridCreated(const GridPair &p)
 {
-    if (!getNGrid(p.x_coord, p.y_coord))
+    if(!getNGrid(p.x_coord, p.y_coord))
     {
-        {
-            WriteGuard Guard(GetLock(MAP_LOCK_TYPE_MAPOBJECTS));
-            setNGrid(new NGridType(p.x_coord*MAX_NUMBER_OF_GRIDS + p.y_coord, p.x_coord, p.y_coord, i_gridExpiry, sWorld.getConfig(CONFIG_BOOL_GRID_UNLOAD)),
-                p.x_coord, p.y_coord);
-        }
+        setNGrid(new NGridType(p.x_coord*MAX_NUMBER_OF_GRIDS + p.y_coord, p.x_coord, p.y_coord, i_gridExpiry, sWorld.getConfig(CONFIG_BOOL_GRID_UNLOAD)),
+            p.x_coord, p.y_coord);
 
         // build a linkage between this map and NGridType
         buildNGridLinkage(getNGrid(p.x_coord, p.y_coord));
@@ -246,7 +243,7 @@ Map::EnsureGridCreated(const GridPair &p)
         int gx = (MAX_NUMBER_OF_GRIDS - 1) - p.x_coord;
         int gy = (MAX_NUMBER_OF_GRIDS - 1) - p.y_coord;
 
-        if (!m_bLoadedGrids[gx][gy])
+        if(!m_bLoadedGrids[gx][gy])
             LoadMapAndVMap(gx,gy);
     }
 }
@@ -415,9 +412,7 @@ void Map::MessageBroadcast(Player *player, WorldPacket *msg, bool to_self)
     Cell cell(p);
     cell.SetNoCreate();
 
-    EnsureGridCreated(GridPair(cell.GridX(), cell.GridY()));
-
-    if (!loaded(GridPair(cell.data.Part.grid_x, cell.data.Part.grid_y)))
+    if( !loaded(GridPair(cell.data.Part.grid_x, cell.data.Part.grid_y)) )
         return;
 
     MaNGOS::MessageDeliverer post_man(*player, msg, to_self);
@@ -425,7 +420,7 @@ void Map::MessageBroadcast(Player *player, WorldPacket *msg, bool to_self)
     cell.Visit(p, message, *this, *player, GetVisibilityDistance());
 }
 
-void Map::MessageBroadcast(WorldObject* obj, WorldPacket* msg)
+void Map::MessageBroadcast(WorldObject *obj, WorldPacket *msg)
 {
     CellPair p = MaNGOS::ComputeCellPair(obj->GetPositionX(), obj->GetPositionY());
 
@@ -438,7 +433,7 @@ void Map::MessageBroadcast(WorldObject* obj, WorldPacket* msg)
     Cell cell(p);
     cell.SetNoCreate();
 
-    if (!loaded(GridPair(cell.data.Part.grid_x, cell.data.Part.grid_y)))
+    if( !loaded(GridPair(cell.data.Part.grid_x, cell.data.Part.grid_y)) )
         return;
 
     //TODO: currently on continents when Visibility.Distance.InFlight > Visibility.Distance.Continents
@@ -914,8 +909,6 @@ bool Map::UnloadGrid(const uint32 &x, const uint32 &y, bool pForce)
         RemoveAllObjectsInRemoveList();
 
         unloader.UnloadN();
-
-        WriteGuard Guard(GetLock(MAP_LOCK_TYPE_MAPOBJECTS));
         delete getNGrid(x, y);
         setNGrid(NULL, x, y);
     }
