@@ -229,13 +229,10 @@ void Map::setUnitCell(Creature* obj)
 void
 Map::EnsureGridCreated(const GridPair &p)
 {
-    if (!getNGrid(p.x_coord, p.y_coord))
+    if(!getNGrid(p.x_coord, p.y_coord))
     {
-        {
-            WriteGuard Guard(GetLock(MAP_LOCK_TYPE_MAPOBJECTS));
-            setNGrid(new NGridType(p.x_coord*MAX_NUMBER_OF_GRIDS + p.y_coord, p.x_coord, p.y_coord, i_gridExpiry, sWorld.getConfig(CONFIG_BOOL_GRID_UNLOAD)),
-                p.x_coord, p.y_coord);
-        }
+        setNGrid(new NGridType(p.x_coord*MAX_NUMBER_OF_GRIDS + p.y_coord, p.x_coord, p.y_coord, i_gridExpiry, sWorld.getConfig(CONFIG_BOOL_GRID_UNLOAD)),
+            p.x_coord, p.y_coord);
 
         // build a linkage between this map and NGridType
         buildNGridLinkage(getNGrid(p.x_coord, p.y_coord));
@@ -246,7 +243,7 @@ Map::EnsureGridCreated(const GridPair &p)
         int gx = (MAX_NUMBER_OF_GRIDS - 1) - p.x_coord;
         int gy = (MAX_NUMBER_OF_GRIDS - 1) - p.y_coord;
 
-        if (!m_bLoadedGrids[gx][gy])
+        if(!m_bLoadedGrids[gx][gy])
             LoadMapAndVMap(gx,gy);
     }
 }
@@ -415,9 +412,7 @@ void Map::MessageBroadcast(Player *player, WorldPacket *msg, bool to_self)
     Cell cell(p);
     cell.SetNoCreate();
 
-    EnsureGridCreated(GridPair(cell.GridX(), cell.GridY()));
-
-    if (!loaded(GridPair(cell.data.Part.grid_x, cell.data.Part.grid_y)))
+    if( !loaded(GridPair(cell.data.Part.grid_x, cell.data.Part.grid_y)) )
         return;
 
     MaNGOS::MessageDeliverer post_man(*player, msg, to_self);
@@ -425,7 +420,7 @@ void Map::MessageBroadcast(Player *player, WorldPacket *msg, bool to_self)
     cell.Visit(p, message, *this, *player, GetVisibilityDistance());
 }
 
-void Map::MessageBroadcast(WorldObject* obj, WorldPacket* msg)
+void Map::MessageBroadcast(WorldObject *obj, WorldPacket *msg)
 {
     CellPair p = MaNGOS::ComputeCellPair(obj->GetPositionX(), obj->GetPositionY());
 
@@ -438,7 +433,7 @@ void Map::MessageBroadcast(WorldObject* obj, WorldPacket* msg)
     Cell cell(p);
     cell.SetNoCreate();
 
-    if (!loaded(GridPair(cell.data.Part.grid_x, cell.data.Part.grid_y)))
+    if( !loaded(GridPair(cell.data.Part.grid_x, cell.data.Part.grid_y)) )
         return;
 
     //TODO: currently on continents when Visibility.Distance.InFlight > Visibility.Distance.Continents
@@ -499,17 +494,12 @@ bool Map::loaded(GridPair const& p) const
 void Map::Update(const uint32 &t_diff)
 {
     m_dyn_tree.update(t_diff);
-
-    // Load all objects in begin of update diff (loading objects count limited by time)
     uint32 loadingObjectToGridUpdateTime = WorldTimer::getMSTime();
-    BattleGround* bg = this->IsBattleGroundOrArena() ? ((BattleGroundMap*)this)->GetBG() : NULL;
-    while (WorldTimer::getMSTimeDiff(loadingObjectToGridUpdateTime, WorldTimer::getMSTime()) < sWorld.getConfig(CONFIG_UINT32_OBJECTLOADINGSPLITTER_ALLOWEDTIME)
-        && !IsLoadingObjectsQueueEmpty())
-    {
-        LoadingObjectQueueMember* loadingObject = GetNextLoadingObject();
-        if (!loadingObject)
-            continue;
 
+    BattleGround* bg = this->IsBattleGroundOrArena() ? ((BattleGroundMap*)this)->GetBG() : NULL;
+    while(!i_loadingObjectQueue.empty())
+    {
+        LoadingObjectQueueMember* loadingObject = i_loadingObjectQueue.top();
         switch(loadingObject->objectTypeID)
         {
             case TYPEID_UNIT:
@@ -526,7 +516,11 @@ void Map::Update(const uint32 &t_diff)
                 sLog.outError("loadingObject->guid = %u, loadingObject.objectTypeID = %u", loadingObject->guid, loadingObject->objectTypeID);
                 break;
         }
+
+        i_loadingObjectQueue.pop();
         delete loadingObject;
+        if (WorldTimer::getMSTimeDiff(loadingObjectToGridUpdateTime, WorldTimer::getMSTime()) > sWorld.getConfig(CONFIG_UINT32_OBJECTLOADINGSPLITTER_ALLOWEDTIME))
+            break;
     }
 
     UpdateEvents(t_diff);
@@ -915,8 +909,6 @@ bool Map::UnloadGrid(const uint32 &x, const uint32 &y, bool pForce)
         RemoveAllObjectsInRemoveList();
 
         unloader.UnloadN();
-
-        WriteGuard Guard(GetLock(MAP_LOCK_TYPE_MAPOBJECTS));
         delete getNGrid(x, y);
         setNGrid(NULL, x, y);
     }
@@ -938,10 +930,11 @@ bool Map::UnloadGrid(const uint32 &x, const uint32 &y, bool pForce)
 
 void Map::UnloadAll(bool pForce)
 {
-    while (!IsLoadingObjectsQueueEmpty())
+    while (!i_loadingObjectQueue.empty())
     {
-        if (LoadingObjectQueueMember* member = GetNextLoadingObject())
-            delete member;
+        LoadingObjectQueueMember* member = i_loadingObjectQueue.top();
+        i_loadingObjectQueue.pop();
+        delete member;
     }
 
     for (GridRefManager<NGridType>::iterator i = GridRefManager<NGridType>::begin(); i != GridRefManager<NGridType>::end(); )
@@ -950,24 +943,6 @@ void Map::UnloadAll(bool pForce)
         ++i;
         UnloadGrid(grid.getX(), grid.getY(), pForce);       // deletes the grid and removes it from the GridRefManager
     }
-}
-
-void Map::AddLoadingObject(LoadingObjectQueueMember* obj)
-{
-    WriteGuard Guard(GetLock(MAP_LOCK_TYPE_MAPOBJECTS));
-    i_loadingObjectQueue.push(obj);
-}
-
-LoadingObjectQueueMember* Map::GetNextLoadingObject()
-{
-    LoadingObjectQueueMember* loadingObject = NULL;
-    if (!IsLoadingObjectsQueueEmpty())
-    {
-        WriteGuard Guard(GetLock(MAP_LOCK_TYPE_MAPOBJECTS));
-        loadingObject = i_loadingObjectQueue.top();
-        i_loadingObjectQueue.pop();
-    }
-    return loadingObject;
 }
 
 MapDifficultyEntry const* Map::GetMapDifficulty() const
