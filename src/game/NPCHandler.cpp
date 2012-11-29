@@ -439,13 +439,12 @@ void WorldSession::SendSpiritResurrect()
         WorldSafeLocsEntry const *ghostGrave = sObjectMgr.GetClosestGraveYard(
             _player->GetPositionX(), _player->GetPositionY(), _player->GetPositionZ(), _player->GetMapId(), _player->GetTeam());
 
-        bool wintergrasp = false;
-
-        if(_player->GetMapId() == 571 && _player->GetZoneId() == 4197)
-           wintergrasp = true;
+        // FIXME - need remove this hack
+        bool wintergrasp =  (_player->GetMapId() == 571 && _player->GetZoneId() == 4197);
 
         if(corpseGrave != ghostGrave && !wintergrasp)
-            _player->TeleportTo(corpseGrave->map_id, corpseGrave->x, corpseGrave->y, corpseGrave->z, _player->GetOrientation());
+            _player->TeleportTo(corpseGrave->map_id, corpseGrave->x, corpseGrave->y, corpseGrave->z, _player->GetOrientation(), TELE_TO_NODELAY);
+
         // or update at original position
         else
         {

@@ -1053,10 +1053,10 @@ class MANGOS_DLL_SPEC Player : public Unit
         explicit Player (WorldSession *session);
         ~Player ();
 
-        void CleanupsBeforeDelete();
+        virtual void CleanupsBeforeDelete() override;
 
         void AddToWorld();
-        void RemoveFromWorld();
+        virtual void RemoveFromWorld(bool remove) override;
 
         bool TeleportTo(uint32 mapid, float x, float y, float z, float orientation, uint32 options = 0)
         {
@@ -1269,7 +1269,6 @@ class MANGOS_DLL_SPEC Player : public Unit
         {
             return StoreItem(dest, pItem, update);
         }
-        Item* BankItem(uint16 pos, Item *pItem, bool update);
         void RemoveItem(uint8 bag, uint8 slot, bool update);
         void MoveItemFromInventory(uint8 bag, uint8 slot, bool update);
                                                             // in trade, auction, guild bank, mail....
@@ -1964,8 +1963,10 @@ class MANGOS_DLL_SPEC Player : public Unit
         bool IsBeingTeleported() const { return mSemaphoreTeleport_Near || mSemaphoreTeleport_Far; }
         bool IsBeingTeleportedNear() const { return mSemaphoreTeleport_Near; }
         bool IsBeingTeleportedFar() const { return mSemaphoreTeleport_Far; }
+        bool IsBeingTeleportedDelayEvent() const { return mSemaphoreTeleport_DelayEvent; }
         void SetSemaphoreTeleportNear(bool semphsetting) { mSemaphoreTeleport_Near = semphsetting; }
         void SetSemaphoreTeleportFar(bool semphsetting) { mSemaphoreTeleport_Far = semphsetting; }
+        void SetSemaphoreTeleportDelayEvent(bool semphsetting) { mSemaphoreTeleport_DelayEvent = semphsetting; }
         void ProcessDelayedOperations();
 
         void CheckAreaExploreAndOutdoor(void);
@@ -2307,7 +2308,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         void UpdateVisibilityOf(WorldObject const* viewPoint, WorldObject* target);
 
         template<class T>
-            void UpdateVisibilityOf(WorldObject const* viewPoint,T* target, UpdateData& data, std::set<WorldObject*>& visibleNow);
+            void UpdateVisibilityOf(WorldObject const* viewPoint,T* target, UpdateData& data, WorldObjectSet& visibleNow);
 
         // Stealth detection system
         void HandleStealthedUnitsDetection();
@@ -2366,6 +2367,8 @@ class MANGOS_DLL_SPEC Player : public Unit
         bool CanUseAreaTrigger(AreaTrigger const* at, Difficulty difficulty) { return GetAreaTriggerLockStatus(at, difficulty) == AREA_LOCKSTATUS_OK; };
         bool CheckTransferPossibility(uint32 mapId);
         bool CheckTransferPossibility(AreaTrigger const*& at, bool b_onlyMainReq = false);
+
+        bool NeedGoingToHomebind();
 
         // LFG
         LFGPlayerState* GetLFGPlayerState() { return m_LFGState; }
@@ -2457,6 +2460,12 @@ class MANGOS_DLL_SPEC Player : public Unit
 
         // Return collision height sent to client
         float GetCollisionHeight(bool mounted);
+
+        // Parent objects (items currently) update system
+        virtual Object* GetDependentObject(ObjectGuid const& guid) override;
+        virtual GuidSet const* GetObjectsUpdateQueue() override { return &i_objectsToClientUpdate; };
+        virtual void AddUpdateObject(ObjectGuid const& guid) override;
+        virtual void RemoveUpdateObject(ObjectGuid const& guid) override;
 
     protected:
 
@@ -2691,6 +2700,9 @@ class MANGOS_DLL_SPEC Player : public Unit
         Runes* m_runes;
         EquipmentSets m_EquipmentSets;
 
+        // Parent objects (items currently) update system
+        GuidSet i_objectsToClientUpdate;
+
         // Refer-A-Friend
         ObjectGuid m_curGrantLevelGiverGuid;
         int32 m_GrantableLevelsCount;
@@ -2769,6 +2781,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         uint32 m_teleport_options;
         bool mSemaphoreTeleport_Near;
         bool mSemaphoreTeleport_Far;
+        bool mSemaphoreTeleport_DelayEvent;
 
         uint32 m_DelayedOperations;
         bool m_bCanDelayTeleport;
