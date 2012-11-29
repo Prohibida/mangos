@@ -1317,7 +1317,7 @@ bool OutdoorPvPWG::HandleEvent(uint32 uiEventId,GameObject* pGo)
            break;
    }
 
-   if(factory)
+   if (factory)
    {
         switch(uiEventId)
         {
@@ -1337,8 +1337,8 @@ bool OutdoorPvPWG::HandleEvent(uint32 uiEventId,GameObject* pGo)
                 break;
         }
    }
-   else
-       return false;
+
+   return false;
 }
 
 void OutdoorPvPWG::EventPlayerDamageGO(Player *player, GameObject* target_obj, uint32 eventId, uint32 spellId)
@@ -1614,26 +1614,25 @@ void OutdoorPvPWG::AddDataWhenWin()
 {
     if(GetDefender() == ALLIANCE)
     {
-       if(!GetPlayersAlliance() == NULL)
-       {
-          CompleteQuest(GetPlayersAlliance(),13181);
-          DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WIN_WG,GetPlayersAlliance());
+        if(!GetPlayersAlliance() == NULL)
+        {
+            CompleteQuest(GetPlayersAlliance(),13181);
+            DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WIN_WG,GetPlayersAlliance());
 
-          if(TimeBattle > 600 && TimeBattle - m_Timer < 600)
-             DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WIN_WG,GetPlayersAlliance());
-       }
+            if(TimeBattle > 600 && TimeBattle - m_Timer < 600)
+                DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WIN_WG,GetPlayersAlliance());
+        }
     }
     else if(GetDefender() == HORDE)
     {
-       if(!GetPlayersHorde() == NULL)
-       {
-          CompleteQuest(GetPlayersHorde(),13183);
-          DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WIN_WG,GetPlayersHorde());
+        if(!GetPlayersHorde() == NULL)
+        {
+            CompleteQuest(GetPlayersHorde(),13183);
+            DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WIN_WG,GetPlayersHorde());
 
-          if(TimeBattle > 600 && TimeBattle - m_Timer < 600)
-             DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WIN_WG,GetPlayersHorde());
-       }
-
+            if (TimeBattle > 600 && TimeBattle - m_Timer < 600)
+                DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WIN_WG,GetPlayersHorde());
+        }
     }
 }
 
@@ -1641,20 +1640,20 @@ void OutdoorPvPWG::RecolatePlayers()
 {
     if(GetDefender() == ALLIANCE)
     {
-       if(!GetPlayersAlliance() == NULL)
-          GetPlayersAlliance()->TeleportTo(571, 5345, 2842, 410, 3.14f);
+        if (GetPlayersAlliance())
+            GetPlayersAlliance()->TeleportTo(571, 5345, 2842, 410, 3.14f);
 
-       if(!GetPlayersHorde() == NULL)
-          GetPlayersHorde()->TeleportTo(571, 5025.857422f, 3674.628906f, 362.737122f, 4.135169f);
+        if (GetPlayersHorde())
+            GetPlayersHorde()->TeleportTo(571, 5025.857422f, 3674.628906f, 362.737122f, 4.135169f);
     }
     else if(GetDefender() == HORDE)
     {
 
-       if(!GetPlayersHorde() == NULL)
-          GetPlayersHorde()->TeleportTo(571, 5345, 2842, 410, 3.14f);
+        if (GetPlayersHorde())
+            GetPlayersHorde()->TeleportTo(571, 5345, 2842, 410, 3.14f);
 
-        if(!GetPlayersAlliance() == NULL)
-          GetPlayersAlliance()->TeleportTo(571, 5101.284f, 2186.564f, 373.549f, 3.812f);
+        if (GetPlayersAlliance())
+            GetPlayersAlliance()->TeleportTo(571, 5101.284f, 2186.564f, 373.549f, 3.812f);
     }
 }
 
@@ -1825,33 +1824,35 @@ void OutdoorPvPWG::UpdateTenacityStack()
 
 void OutdoorPvPWG::UpdateAura(Player* pPlayer)
 {
-       if(SpellAuraHolderPtr pHolder = pPlayer->GetSpellAuraHolder(SPELL_RECRUIT))
-       {
-          if(pHolder->GetStackAmount() >= 5)
-          {
+    if (SpellAuraHolderPtr pHolder = pPlayer->GetSpellAuraHolder(SPELL_RECRUIT))
+    {
+        if(pHolder->GetStackAmount() >= 5)
+        {
             pPlayer->RemoveAurasDueToSpell(SPELL_RECRUIT);
             pPlayer->CastSpell(pPlayer, SPELL_CORPORAL, true);
-          }
-          else
+        }
+        else
             pHolder->SetStackAmount(pHolder->GetStackAmount() + 1);
-       }
-       else if(SpellAuraHolderPtr pHolder = pPlayer->GetSpellAuraHolder(SPELL_CORPORAL))
-       {
-          if (pHolder->GetStackAmount() >= 5)
-          {
+    }
+    else if(SpellAuraHolderPtr pHolder = pPlayer->GetSpellAuraHolder(SPELL_CORPORAL))
+    {
+        if (pHolder->GetStackAmount() >= 5)
+        {
             pPlayer->RemoveAurasDueToSpell(SPELL_CORPORAL);
             pPlayer->CastSpell(pPlayer, SPELL_LIEUTENANT, true);
-          }
-          else
+        }
+        else
             pHolder->SetStackAmount(pHolder->GetStackAmount() + 1);
-       }
+    }
 }
 
 void OutdoorPvPWG::AddAuraResurrect(Player* pPlayer)
 {
-     if (pPlayer->GetTeam() == ALLIANCE && m_tenacityStack > 0 ||
-         pPlayer->GetTeam() == HORDE && m_tenacityStack < 0)
-     {
+    if (!pPlayer)
+        return;
+    if ((pPlayer->GetTeam() == ALLIANCE && m_tenacityStack > 0) ||
+        (pPlayer->GetTeam() == HORDE && m_tenacityStack < 0))
+    {
         if (!pPlayer->HasAura(SPELL_TENACITY))
             pPlayer->CastSpell(pPlayer, SPELL_TENACITY, true);
 
@@ -1863,7 +1864,7 @@ void OutdoorPvPWG::AddAuraResurrect(Player* pPlayer)
         {
            pHolder->SetStackAmount(newStack);
         }
-     }
+    }
 }
 
 // Tower
@@ -1889,20 +1890,20 @@ void OutdoorPvPWG::AddBrokenTower(uint32 team, Player* pPlayer)
 
         if(GetAttacker() == ALLIANCE && pPlayer->GetTeam() == HORDE)
         {
-            if(!GetPlayersAlliance() == NULL)
-              GetPlayersAlliance()->RemoveAurasDueToSpell(SPELL_TOWER_CONTROL);
-            if(!GetPlayersHorde() == NULL)
-              GetPlayersHorde()->CastSpell(GetPlayersHorde(), SPELL_TOWER_CONTROL, true);
+            if(GetPlayersAlliance())
+                GetPlayersAlliance()->RemoveAurasDueToSpell(SPELL_TOWER_CONTROL);
+            if(GetPlayersHorde())
+                GetPlayersHorde()->CastSpell(GetPlayersHorde(), SPELL_TOWER_CONTROL, true);
 
             CompleteQuest(pPlayer, 13539);
             DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WG_TOWER_DESTROY, pPlayer);
         }
         else if (GetAttacker() == HORDE && pPlayer->GetTeam() == ALLIANCE)
         {
-            if(!GetPlayersHorde() == NULL)
-             GetPlayersHorde()->RemoveAurasDueToSpell(SPELL_TOWER_CONTROL);
-            if(!GetPlayersAlliance() == NULL)
-             GetPlayersAlliance()->CastSpell(GetPlayersAlliance(), SPELL_TOWER_CONTROL, true);
+            if (GetPlayersHorde())
+                GetPlayersHorde()->RemoveAurasDueToSpell(SPELL_TOWER_CONTROL);
+            if (GetPlayersAlliance())
+                GetPlayersAlliance()->CastSpell(GetPlayersAlliance(), SPELL_TOWER_CONTROL, true);
 
              CompleteQuest(pPlayer, 13538);
              DoCompleteOrIncrementAchievement(ACHIEVEMENTS_WG_TOWER_DESTROY, pPlayer);

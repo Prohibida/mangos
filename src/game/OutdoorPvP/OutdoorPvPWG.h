@@ -336,12 +336,12 @@ class MANGOS_DLL_SPEC OutdoorPvPWG : public OutdoorPvP
         void AddVehicle(Creature* pCreature,uint32 team);
         void DeleteVehicle(Creature* pCreature,uint32 team);
 
-		//Players
-		Player* GetPlayerInZone();
-		Player* GetPlayersAlliance();
-		Player* GetPlayersHorde();
-		uint32 CountPlayersAlliance();
-		uint32 CountPlayersHorde();
+        //Players
+        Player* GetPlayerInZone();
+        Player* GetPlayersAlliance();
+        Player* GetPlayersHorde();
+        uint32 CountPlayersAlliance();
+        uint32 CountPlayersHorde();
 
     protected:
         uint32 m_Timer; // In second, use in timer for updating the world state timer and controling timer phase
@@ -823,12 +823,12 @@ struct OutdoorPvPGraveYardWG
 
         if (m_team == ALLIANCE)
             SpiritGuieA = pCreature->GetObjectGuid();
-        else if (m_team = HORDE)
+        else if (m_team == HORDE)
             SpiritGuieH = pCreature->GetObjectGuid();
 
-        if(m_id == GRAVEYARD_ID_KEEP)
+        if (m_id == GRAVEYARD_ID_KEEP)
         {
-           if(SpiritGuieA != NULL && SpiritGuieH == NULL)
+           if (SpiritGuieA || SpiritGuieH)
               Start();
         }
 
@@ -858,12 +858,9 @@ struct OutdoorPvPGraveYardWG
             Mmap->GetCreature(SpiritGuieH)->SetVisibility(VISIBILITY_OFF);
         }
 
-       if(changeteam)
+       if (changeteam)
        {
-           if(m_team == ALLIANCE)
-             m_team == HORDE;
-           else if(m_team == HORDE)
-             m_team == ALLIANCE;
+           m_team = (m_team == ALLIANCE) ? HORDE : ALLIANCE;
        }
     }
 
@@ -977,7 +974,7 @@ struct OutdoorPvPWorkShopWG
         m_WG->SendUpdateWorldState(m_WorldState, m_State);
         Rebuild(true);
 
-        if(m_Type < WORLD_PVP_WG_WORKSHOP_KEEP_WEST)
+        if (m_Type < WORLD_PVP_WG_WORKSHOP_KEEP_WEST)
         {
            m_GY->Start();
            sObjectMgr.SetGraveYardLinkTeam(m_GY->GetId(), ZONE_ID_WINTERGRASP, Team(m_TeamControl));
@@ -986,12 +983,9 @@ struct OutdoorPvPWorkShopWG
 
     void EndBattle(bool changeteam)
     {
-        if(changeteam)
+        if (changeteam)
         {
-            if(m_TeamControl == ALLIANCE)
-               m_TeamControl = HORDE;
-            else if(m_TeamControl = ALLIANCE)
-               m_TeamControl = ALLIANCE;
+            m_TeamControl = (m_TeamControl == ALLIANCE) ? HORDE : ALLIANCE;
         }
 
         m_State = WORLD_PVP_WG_OBJECTSTATE_NEUTRAL_INTACT;
@@ -1002,7 +996,7 @@ struct OutdoorPvPWorkShopWG
     void Rebuild(bool activate)
     {
 
-        if(m_TeamControl == ALLIANCE)
+        if (m_TeamControl == ALLIANCE)
         {
            for (std::list<ObjectGuid>::iterator itr = m_CreatureA.begin(); itr != m_CreatureA.end(); ++itr)
            {
