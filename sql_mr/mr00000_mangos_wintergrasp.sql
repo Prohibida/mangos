@@ -312,8 +312,8 @@ REPLACE INTO `gameobject` (`guid`,`id`, `map`, `spawnMask`, `phaseMask`, `positi
 VALUES
 -- Alliance
 -- 190356
-(@GUIDGOTOWERS,'192501','571','1','1','4559.10', '3606.21', '419.99', '-1.48','0','0','0','0','5','0','1'),	
-(@GUIDGOTOWERS + 1,'192501','571','1','1','4539.41', '3622.48', '420.03', '-3.07','0','0','0','0','5','0','1'),		
+(@GUIDGOTOWERS,'192501','571','1','1','4559.10', '3606.21', '419.99', '-1.48','0','0','0','0','5','0','1'),    
+(@GUIDGOTOWERS + 1,'192501','571','1','1','4539.41', '3622.48', '420.03', '-3.07','0','0','0','0','5','0','1'),        
 (@GUIDGOTOWERS + 2,'192501','571','1','1','4555.25', '3641.64', '419.97', '1.67','0','0','0','0','5','0','1'),   
 (@GUIDGOTOWERS + 3,'192501','571','1','1','4574.87', '3625.90', '420.07', '0.08','0','0','0','0','5','0','1'), 
 (@GUIDGOTOWERS + 4,'192278','571','1','1','4433.89', '3534.13', '360.27', '-1.85','0','0','0','0','5','0','1'),        
@@ -360,7 +360,7 @@ VALUES
 (@GUIDGOTOWERS2 + 22,'192488','571','1','1','4451.75', '1928.09', '459.07', '-2.00','0','0','0','0','5','0','1'), 
 (@GUIDGOTOWERS2 + 23,'192488','571','1','1','4442.99', '1951.90', '459.09', '2.740','0','0','0','0','5','0','1'), 
 (@GUIDGOTOWERS2 + 24,'192424','571','1','1','4563.73', '2171.15', '367.68', '1.30','0','0','0','0','5','0','1');
-			
+            
 -- Towers turret
 SET @GUIDCRET = 530000;
 SET @GUIDCRET1 = @GUIDCRET + 10;
@@ -398,7 +398,7 @@ set @SPIRIT_GUIDE_H = 31841;
 
 SET @GUIDCRESG = 530030;
 
-REPLACE INTO `creature` (`guid`, `id`, `map`, `spawnMask`, `phaseMask`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecs`, `spawndist`, `currentwaypoint`, `curhealth`, `curmana`, `DeathState`, `MovementType`) VALUES			  
+REPLACE INTO `creature` (`guid`, `id`, `map`, `spawnMask`, `phaseMask`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecs`, `spawndist`, `currentwaypoint`, `curhealth`, `curmana`, `DeathState`, `MovementType`) VALUES
 -- 1329 
 (@GUIDCRESG,@SPIRIT_GUIDE_A,'571','1','1','5104.75','2300.94','368.57','0.73','180','0','0','42740','7988','0','0'),
 (@GUIDCRESG + 1,@SPIRIT_GUIDE_H,'571','1','1','5104.75','2300.94','368.57','0.73','180','0','0','42740','7988','0','0'),
@@ -558,14 +558,33 @@ REPLACE INTO `gameobject` (`guid`,`id`, `map`, `spawnMask`, `phaseMask`, `positi
 (@GUIDGOWS2 + 34,'192432','571','1','1','4401.62','3377.48','363.12','1.53589','0','0','0','0','5','0','1');
 
 -- vehicles
-UPDATE `creature_template` SET spell1 = 51421 WHERE entry = 28366;
-UPDATE `creature_template` SET faction_A = 1979, faction_H = 1979, spell1 = 57609 WHERE entry = 32629;
-UPDATE `creature_template` SET spell1 = 57609 WHERE entry = 28319;
-UPDATE `creature_template` SET spell1 = 54109 WHERE entry IN (32627,28312);
-UPDATE `creature_template` SET spell1 = 54107, spell2 = 50896 WHERE entry = 28094;
-UPDATE `creature_template` SET spell1 = 57606, spell2 = 50989 WHERE entry = 27881;
-DELETE FROM npc_spellclick_spells WHERE npc_entry IN (28366);
-INSERT INTO npc_spellclick_spells (npc_entry, spell_id, quest_start, quest_start_active, quest_end, cast_flags) VALUES
+DELETE FROM `creature_spell` WHERE `guid` IN (28366);
+INSERT INTO `creature_spell` (`guid`, `spell`, `index`) VALUES
+(28366, 51421, 0);
+
+UPDATE `creature_template` SET `faction_A` = 1979, `faction_H` = 1979 WHERE entry = 32629;
+DELETE FROM `creature_spell` WHERE `guid` IN (32629, 28319);
+INSERT INTO `creature_spell` (`guid`, `spell`, `index`) VALUES
+(32629, 57609, 0),
+(28319, 57609, 0);
+
+DELETE FROM `creature_spell` WHERE `guid` IN (32627, 28312);
+INSERT INTO `creature_spell` (`guid`, `spell`, `index`) VALUES
+(32627, 54109, 0),
+(28312, 54109, 0);
+
+DELETE FROM `creature_spell` WHERE `guid` IN (28094);
+INSERT INTO `creature_spell` (`guid`, `spell`, `index`) VALUES
+(28094, 54107, 0),
+(28094, 50896, 1);
+
+DELETE FROM `creature_spell` WHERE `guid` IN (27881);
+INSERT INTO `creature_spell` (`guid`, `spell`, `index`) VALUES
+(27881, 57606, 0),
+(27881, 50989, 1);
+
+DELETE FROM `npc_spellclick_spells` WHERE npc_entry IN (28366);
+INSERT INTO `npc_spellclick_spells` (npc_entry, spell_id, quest_start, quest_start_active, quest_end, cast_flags) VALUES
 (28366, 60968, 0, 0, 0, 1);
 
 -- Wintergrasp spell building targets

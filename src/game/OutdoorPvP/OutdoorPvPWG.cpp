@@ -304,11 +304,11 @@ void OutdoorPvPWG::HandlePlayerEnterZone(Player* pPlayer, bool isMainZone)
        }
     }
 
-	m_sZonePlayers.insert(pPlayer->GetObjectGuid());
+    m_sZonePlayers.insert(pPlayer->GetObjectGuid());
 
     if(pPlayer->GetTeam() == ALLIANCE)
         m_sZonePlayersAlliance.insert(pPlayer->GetObjectGuid());
-	else if(pPlayer->GetTeam() == HORDE)
+    else if(pPlayer->GetTeam() == HORDE)
         m_sZonePlayersHorde.insert(pPlayer->GetObjectGuid());
 
     OutdoorPvP::HandlePlayerEnterZone(pPlayer,isMainZone);
@@ -327,11 +327,11 @@ void OutdoorPvPWG::HandlePlayerLeaveZone(Player* pPlayer, bool isMainZone)
     pPlayer->RemoveAurasDueToSpell(58730);
     pPlayer->RemoveAurasDueToSpell(SPELL_TOWER_CONTROL);
 
-	m_sZonePlayers.erase(pPlayer->GetObjectGuid());
+    m_sZonePlayers.erase(pPlayer->GetObjectGuid());
 
-	if(pPlayer->GetTeam() == ALLIANCE)
+    if(pPlayer->GetTeam() == ALLIANCE)
         m_sZonePlayersAlliance.erase(pPlayer->GetObjectGuid());
-	else if(pPlayer->GetTeam() == HORDE)
+    else if(pPlayer->GetTeam() == HORDE)
         m_sZonePlayersHorde.erase(pPlayer->GetObjectGuid());
 
     OutdoorPvP::HandlePlayerLeaveZone(pPlayer,isMainZone);
@@ -1326,19 +1326,19 @@ bool OutdoorPvPWG::HandleEvent(uint32 uiEventId,GameObject* pGo)
             case EVENT_FACTORY_SE_PROGRESS_ALLIANCE:
             case EVENT_FACTORY_SW_PROGRESS_ALLIANCE:
                 ws->ChangeControl(ALLIANCE,false);
-				return true;
+                return true;
                 break;
             case EVENT_FACTORY_NE_PROGRESS_HORDE:
             case EVENT_FACTORY_NW_PROGRESS_HORDE:
             case EVENT_FACTORY_SE_PROGRESS_HORDE:
             case EVENT_FACTORY_SW_PROGRESS_HORDE:
                 ws->ChangeControl(HORDE,false);
-				return true;
+                return true;
                 break;
         }
    }
    else
-	   return false;
+       return false;
 }
 
 void OutdoorPvPWG::EventPlayerDamageGO(Player *player, GameObject* target_obj, uint32 eventId, uint32 spellId)
@@ -2002,13 +2002,10 @@ void OutdoorPvPWG::AddVehicle(Creature* pCreature,uint32 team)
     if(team == ALLIANCE)
     {
         pCreature->setFaction(NPC_FACTION_A);
-        if(pCreature->GetEntry() == 28312)
+        if (pCreature->GetEntry() == 28312)
         {
-            if(VehicleKitPtr veh = pCreature->GetVehicleKit())
-            {
-                pCreature->GetVehicleKit()->RemoveAllPassengers();
-                pCreature->GetVehicleKit()->InstallAllAccessories(pCreature->GetEntry());
-            }
+            if (VehicleKitPtr veh = pCreature->GetVehicleKit())
+                veh->Reset();
         }
         VehicleCountA = VehicleCountA + 1;
         m_vehicleA.push_back(pCreature->GetObjectGuid());
@@ -2016,13 +2013,10 @@ void OutdoorPvPWG::AddVehicle(Creature* pCreature,uint32 team)
     else if(team == HORDE)
     {
         pCreature->setFaction(NPC_FACTION_H);
-        if(pCreature->GetEntry() == 32627)
+        if (pCreature->GetEntry() == 32627)
         {
             if(VehicleKitPtr veh = pCreature->GetVehicleKit())
-            {
-                pCreature->GetVehicleKit()->RemoveAllPassengers();
-                pCreature->GetVehicleKit()->InstallAllAccessories(pCreature->GetEntry());
-            }
+                veh->Reset();
         }
         VehicleCountH = VehicleCountH + 1;
         m_vehicleH.push_back(pCreature->GetObjectGuid());
@@ -2066,10 +2060,10 @@ Player* OutdoorPvPWG::GetPlayersAlliance()
     for (GuidSet::iterator itr = m_sZonePlayersAlliance.begin(); itr != m_sZonePlayersAlliance.end(); ++itr)
     {
         Player* pPlayer = sObjectMgr.GetPlayer(*itr);
-		pPlayers = pPlayer;
+        pPlayers = pPlayer;
     }
 
-	return pPlayers;
+    return pPlayers;
 }
 
 Player* OutdoorPvPWG::GetPlayersHorde()
@@ -2079,10 +2073,10 @@ Player* OutdoorPvPWG::GetPlayersHorde()
     for (GuidSet::iterator itr = m_sZonePlayersHorde.begin(); itr != m_sZonePlayersHorde.end(); ++itr)
     {
         Player* pPlayer = sObjectMgr.GetPlayer(*itr);
-		pPlayers = pPlayer;
+        pPlayers = pPlayer;
     }
 
-	return pPlayers;
+    return pPlayers;
 }
 
 uint32 OutdoorPvPWG::CountPlayersAlliance()
