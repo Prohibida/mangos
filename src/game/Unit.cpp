@@ -194,7 +194,7 @@ void GlobalCooldownMgr::CancelGlobalCooldown(SpellEntry const* spellInfo)
 Unit::Unit() :
     m_charmInfo(NULL),
     i_motionMaster(this),
-    m_ThreatManager(this),
+    m_ThreatManager(*this),
     m_HostileRefManager(new HostileRefManager(this)),
     m_stateMgr(this)
 {
