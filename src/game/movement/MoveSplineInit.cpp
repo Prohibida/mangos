@@ -20,6 +20,7 @@
 #include "MoveSpline.h"
 #include "packet_builder.h"
 #include "../Unit.h"
+#include "../GameObject.h"
 #include "../TransportSystem.h"
 
 namespace Movement
