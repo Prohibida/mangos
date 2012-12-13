@@ -35,6 +35,8 @@
 #define FLIGHT_TRAVEL_UPDATE  100
 #define STOP_TIME_FOR_PLAYER  3 * MINUTE * IN_MILLISECONDS  // 3 Minutes
 
+class GameObject;
+
 template<class T, class P>
 class MANGOS_DLL_SPEC PathMovementBase
 {

@@ -37,6 +37,7 @@ alter table creature_movement add `wpguid` int(11) default '0';
 #include "Player.h"
 #include "Creature.h"
 #include "CreatureAI.h"
+#include "GameObject.h"
 #include "WaypointManager.h"
 #include "WorldPacket.h"
 #include "ScriptMgr.h"
