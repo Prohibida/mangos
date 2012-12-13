@@ -651,7 +651,7 @@ void ThreatManager::UpdateForClient(uint32 diff)
 
 bool ThreatManager::isOwnerOnline() const
 {
-    if (!owner.IsInWorld() || !owner.GetMap())
+    if (!owner.IsInWorld())
         return false;
 
     if (!owner.GetTypeId() == TYPEID_PLAYER)

@@ -1120,12 +1120,8 @@ void WorldObject::RemoveFromWorld(bool remove)
         Object::RemoveFromWorld(remove);
 
     GetMap()->RemoveUpdateObject(GetObjectGuid());
-
     if (remove)
-    {
         GetMap()->EraseObject(GetObjectGuid());
-        ResetMap();
-    }
 }
 
 ObjectLockType& WorldObject::GetLock(MapLockType _lockType)
