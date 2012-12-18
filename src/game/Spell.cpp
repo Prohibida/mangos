@@ -630,7 +630,7 @@ void Spell::FillTargetMap()
                         case TARGET_ALL_FRIENDLY_UNITS_IN_AREA:
                         case TARGET_AREAEFFECT_GO_AROUND_DEST:
                             // triggered spells get dest point from default target set, ignore it
-                            if (!(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) || m_IsTriggeredSpell)
+                            if (!(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) && !m_IsTriggeredSpell)
                                 if (WorldObject* castObject = GetCastingObject())
                                     m_targets.setDestination(castObject->GetPositionX(), castObject->GetPositionY(), castObject->GetPositionZ());
                             SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetB[i], tmpUnitLists[i /*==effToIndex[i]*/]);
@@ -718,7 +718,7 @@ void Spell::FillTargetMap()
                         break;
                         case TARGET_AREAEFFECT_CUSTOM:
                             // triggered spells get dest point from default target set, ignore it
-                            if (!(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) || m_IsTriggeredSpell)
+                            if (!(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) && !m_IsTriggeredSpell)
                                 if (WorldObject* castObject = GetCastingObject())
                                     m_targets.setDestination(castObject->GetPositionX(), castObject->GetPositionY(), castObject->GetPositionZ());
                             SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetB[i], tmpUnitLists[i /*==effToIndex[i]*/]);
