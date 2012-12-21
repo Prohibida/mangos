@@ -284,7 +284,7 @@ void ObjectAccessor::RemoveOldCorpses()
 /// Define the static member of HashMapHolder
 
 template <class T> typename HashMapHolder<T>::MapType HashMapHolder<T>::m_objectMap;
-template <class T> ACE_RW_Thread_Mutex HashMapHolder<T>::i_lock;
+template <class T> ACE_MUTEX_MODEL HashMapHolder<T>::i_lock;
 
 /// Global definitions for the hashmap storage
 

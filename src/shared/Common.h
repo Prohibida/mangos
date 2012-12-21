@@ -261,20 +261,20 @@ inline char * mangos_strdup(const char * source)
 
 #if defined WIN64
 #     define  NOTSAFE_SEMAPHORE_OVERHANDLING "Win64"
-#     define  WINDOWS_MUTEX_MODEL "Win64"
+#     define  ACE_MUTEX_MODEL ACE_Null_Mutex
 #elif defined WIN32
 #     define  NOTSAFE_SEMAPHORE_OVERHANDLING "Win32"
-#     define  WINDOWS_MUTEX_MODEL "Win32"
-#elif defined  (__FreeBSD__)
+#     define  ACE_MUTEX_MODEL ACE_Null_Mutex
+#elif defined (__FreeBSD__)
 #     define  NOTSAFE_SEMAPHORE_OVERHANDLING "FreeBSD"
-#     undef   WINDOWS_MUTEX_MODEL
-#elif defined(__APPLE__)
+#     define  ACE_MUTEX_MODEL ACE_RW_Thread_Mutex
+#elif defined (__APPLE__)
 #     define  NOTSAFE_SEMAPHORE_OVERHANDLING "MacOS"
-#     undef   WINDOWS_MUTEX_MODEL
+#     define  ACE_MUTEX_MODEL ACE_RW_Thread_Mutex
 // All other possibility - linux, android  and some other, has all needed methods
 #else
 #     undef   NOTSAFE_SEMAPHORE_OVERHANDLING
-#     undef   WINDOWS_MUTEX_MODEL
+#     define  ACE_MUTEX_MODEL ACE_RW_Thread_Mutex
 #endif
 
 #include <stdint.h>
