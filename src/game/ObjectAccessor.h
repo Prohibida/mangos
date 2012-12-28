@@ -47,7 +47,7 @@ class HashMapHolder
     public:
 
         typedef UNORDERED_MAP<ObjectGuid, T*>   MapType;
-        typedef ACE_MUTEX_MODEL                 LockType;
+        typedef MANGOSR2_MUTEX_MODEL            LockType;
         typedef ACE_Read_Guard<LockType>        ReadGuard;
         typedef ACE_Write_Guard<LockType>       WriteGuard;
 

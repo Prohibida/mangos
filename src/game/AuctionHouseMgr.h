@@ -170,7 +170,7 @@ class AuctionHouseMgr
         ~AuctionHouseMgr();
 
         typedef UNORDERED_MAP<uint32, Item*> ItemMap;
-        typedef ACE_MUTEX_MODEL              LockType;
+        typedef MANGOSR2_MUTEX_MODEL         LockType;
         typedef ACE_Read_Guard<LockType>     ReadGuard;
         typedef ACE_Write_Guard<LockType>    WriteGuard;
 

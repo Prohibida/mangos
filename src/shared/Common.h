@@ -261,20 +261,25 @@ inline char * mangos_strdup(const char * source)
 
 #if defined WIN64
 #     define  NOTSAFE_SEMAPHORE_OVERHANDLING "Win64"
-#     define  ACE_MUTEX_MODEL ACE_Null_Mutex
+#     define  MANGOSR2_MUTEX_MODEL ACE_Null_Mutex
+#     define  MANGOSR2_SINGLE_THREAD "Win64"
 #elif defined WIN32
 #     define  NOTSAFE_SEMAPHORE_OVERHANDLING "Win32"
-#     define  ACE_MUTEX_MODEL ACE_Null_Mutex
+#     define  MANGOSR2_MUTEX_MODEL ACE_Null_Mutex
+#     define  MANGOSR2_SINGLE_THREAD "Win32"
 #elif defined (__FreeBSD__)
 #     define  NOTSAFE_SEMAPHORE_OVERHANDLING "FreeBSD"
-#     define  ACE_MUTEX_MODEL ACE_RW_Thread_Mutex
+#     define  MANGOSR2_MUTEX_MODEL ACE_RW_Thread_Mutex
+#     undef   MANGOSR2_SINGLE_THREAD
 #elif defined (__APPLE__)
 #     define  NOTSAFE_SEMAPHORE_OVERHANDLING "MacOS"
-#     define  ACE_MUTEX_MODEL ACE_RW_Thread_Mutex
+#     define  MANGOSR2_MUTEX_MODEL ACE_RW_Thread_Mutex
+#     undef   MANGOSR2_SINGLE_THREAD
 // All other possibility - linux, android  and some other, has all needed methods
 #else
 #     undef   NOTSAFE_SEMAPHORE_OVERHANDLING
-#     define  ACE_MUTEX_MODEL ACE_RW_Thread_Mutex
+#     define  MANGOSR2_MUTEX_MODEL ACE_RW_Thread_Mutex
+#     undef   MANGOSR2_SINGLE_THREAD
 #endif
 
 #include <stdint.h>

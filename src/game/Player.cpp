@@ -21073,6 +21073,9 @@ void Player::learnSkillRewardedSpells(uint32 skill_id, uint32 skill_value)
 
 void Player::SendAurasForTarget(Unit *target)
 {
+    if (!target)
+        return;
+
     WorldPacket data(SMSG_AURA_UPDATE_ALL);
     data << target->GetPackGUID();
 
