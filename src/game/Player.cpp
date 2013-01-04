@@ -15886,7 +15886,7 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
 
     // player bounded instance saves loaded in _LoadBoundInstances, group versions at group loading
     DungeonPersistentState* state = GetBoundInstanceSaveForSelfOrGroup(savedLocation.GetMapId());
-//    Map* targetMap = sMapMgr.FindMap(savedLocation.mapid, state ? state->GetInstanceId() : 0);
+//    Map* targetMap = sMapMgr.FindMap(savedLocation.GetMapId(), state ? state->GetInstanceId() : 0);
 
     if (m_bgData.bgInstanceID)                              //saved in BattleGround
     {
