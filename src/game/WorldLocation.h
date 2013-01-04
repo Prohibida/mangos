@@ -21,49 +21,59 @@
 #define _WORLDLOCATION_H
 
 #include "Common.h"
+#include <G3D/Vector3.h>
 
-struct MANGOS_DLL_SPEC Position
+using G3D::Vector3;
+
+struct MANGOS_DLL_SPEC Location : public Vector3
 {
-    Position() 
-        : x(0.0f), y(0.0f), z(0.0f), o(0.0f)
+    Location() 
+        : orientation(0.0f)
+    {}
+
+    Location(float x, float y, float z, float o = 0.0f)
+        : Vector3(x, y, z), orientation(o)
+    {}
+
+    Location(const Vector3& v) 
+        : Vector3(v), orientation(0.0f)
+    {}
+
+    Location(const Vector3& v, float o) 
+        : Vector3(v), orientation(o)
+    {}
+
+    virtual ~Location()
     {};
 
-    Position(float _x, float _y, float _z, float _o)
-        : x(_x), y(_y), z(_z), o(_o)
+    union
+    {
+        float orientation;
+        float o;
+    };
+};
+
+struct MANGOS_DLL_SPEC Position : public Location
+{
+    Position() 
+        : Location()
+    {};
+
+    Position(float _x, float _y, float _z, float _o = 0.0f)
+        : Location(_x, _y, _z, _o)
     {};
 
     virtual ~Position()
     {};
 
-    union
-    {
-        float x;
-        float coord_x;
-    };
-    union
-    {
-        float y;
-        float coord_y;
-    };
-    union
-    {
-        float z;
-        float coord_z;
-    };
-    union
-    {
-        float o;
-        float orientation;
-    };
+    float& coord_x = x;
+    float& coord_y = y;
+    float& coord_z = z;
 
     virtual bool HasMap() const { return false; };
 
-    bool operator == (Position const& pos) const
-    {
-        return ((fabs(x - pos.x) < M_NULL_F)
-            && (fabs(y - pos.y) < M_NULL_F)
-            && (fabs(z - pos.z) < M_NULL_F));
-    };
+    Position& operator = (Position const& pos);
+    bool operator == (Position const& pos) const;
 };
 
 class WorldObject;
@@ -110,13 +120,13 @@ struct MANGOS_DLL_SPEC WorldLocation : public Position
     uint32 GetAreaId() const;
 
     uint32 GetRealmId()    const { return realmid; };
-    uint32 GetMapId()      const { return HasMap() ? abs(mapid) :  451; /*Programmers Isle. possible need assert here.*/ };
+    uint32 GetMapId()      const { return HasMap() ? abs(mapid) :  UINT32_MAX; };
     uint32 GetInstanceId() const { return HasMap() ? instance :  0; };
 
 
     void SetMapId(uint32 value);
     void SetInstanceId(uint32 value)  { instance = value; };
-    //void SetRealmId(uint32 value)   { realmid  = value; }; // Currently not need make realm switch - awaiting multirealm implement.
+    void SetRealmId(uint32 value)     { realmid  = value; }; // Currently not need make realm switch - awaiting multirealm implement.
 
     bool IsValidMapCoord(WorldLocation const& loc);
 

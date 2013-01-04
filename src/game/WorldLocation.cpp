@@ -22,6 +22,22 @@
 #include "World.h"
 #include "WorldLocation.h"
 
+Position& Position::operator = (Position const& pos)
+{
+    x = pos.x;
+    y = pos.y;
+    z = pos.z;
+    orientation = pos.orientation;
+    return *this;
+}
+
+bool Position::operator == (Position const& pos) const
+{
+    return ((fabs(x - pos.x) < M_NULL_F)
+        && (fabs(y - pos.y) < M_NULL_F)
+        && (fabs(z - pos.z) < M_NULL_F));
+};
+
 WorldLocation::WorldLocation(WorldObject const& object)
     : Position(object.GetPositionX(), object.GetPositionX(), object.GetPositionZ(), object.GetOrientation()),
         mapid(object.GetMapId()), instance(object.GetInstanceId()), realmid(sWorld.getConfig(CONFIG_UINT32_REALMID))
