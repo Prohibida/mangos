@@ -984,7 +984,7 @@ void Aura::PersistentAreaAuraUpdate(uint32 diff)
         DynamicObject *dynObj = caster->GetDynObject(GetId(), GetEffIndex());
         if (dynObj)
         {
-            if (!GetTarget()->IsWithinDistInMap(dynObj, dynObj->GetRadius()))
+            if (GetHolder()->IsPermanent() && !GetTarget()->IsWithinDistInMap(dynObj, dynObj->GetRadius()))
             {
                 remove = true;
                 dynObj->RemoveAffected(GetTarget());        // let later reapply if target return to range
@@ -2650,6 +2650,9 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         return;
                     case 58591:                                 // Stoneclaw Totem X
                         target->CastSpell(target, 58585, true);
+                        return;
+                    case 58983:                                 // Big Blizzard Bear
+                        Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 58997, 58999, 0, 0, 0);
                         return;
                     case 61187:                                 // Twilight Shift
                         target->CastSpell(target, 61885, true);
@@ -8526,7 +8529,7 @@ void Aura::PeriodicTick()
                 return;
 
             if (spellProto->Effect[GetEffIndex()] == SPELL_EFFECT_PERSISTENT_AREA_AURA &&
-                pCaster->SpellHitResult(target, spellProto, false) != SPELL_MISS_NONE)
+                pCaster->SpellHitResult(target, spellProto) != SPELL_MISS_NONE)
                 return;
 
             // Check for immune (not use charges)
@@ -8769,7 +8772,7 @@ void Aura::PeriodicTick()
                 return;
 
             if (spellProto->Effect[GetEffIndex()] == SPELL_EFFECT_PERSISTENT_AREA_AURA &&
-                pCaster->SpellHitResult(target, spellProto, false) != SPELL_MISS_NONE)
+                pCaster->SpellHitResult(target, spellProto) != SPELL_MISS_NONE)
                 return;
 
             // Check for immune
@@ -8995,7 +8998,7 @@ void Aura::PeriodicTick()
                 return;
 
             if (GetSpellProto()->Effect[GetEffIndex()] == SPELL_EFFECT_PERSISTENT_AREA_AURA &&
-                pCaster->SpellHitResult(target, spellProto, false) != SPELL_MISS_NONE)
+                pCaster->SpellHitResult(target, spellProto) != SPELL_MISS_NONE)
                 return;
 
             // Check for immune (not use charges)
@@ -10540,7 +10543,7 @@ m_permanent(false), m_isRemovedOnShapeLost(true), m_deleted(false), m_in_use(0)
     m_duration = m_maxDuration = CalculateSpellDuration(spellproto, unitCaster);
 
     if (m_maxDuration == -1 || (m_isPassive && spellproto->DurationIndex == 0))
-        m_permanent = true;
+        SetPermanent(true);
 
     if (unitCaster)
     {
