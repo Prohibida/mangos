@@ -1085,8 +1085,8 @@ void Object::MarkForClientUpdate()
 }
 
 WorldObject::WorldObject()
-    : m_groupLootTimer(0), loot(this), m_groupLootId(0), m_lootGroupRecipientId(0), m_transportInfo(NULL), movespline(new Movement::MoveSpline()),
-    m_currMap(NULL), m_position(WorldLocation()), m_phaseMask(PHASEMASK_NORMAL), m_viewPoint(*this), m_isActiveObject(false),
+    : m_groupLootTimer(0), loot(this), m_groupLootId(0), m_lootGroupRecipientId(0), m_transportInfo(NULL),
+    m_currMap(NULL), m_position(WorldLocation()), m_viewPoint(*this), m_isActiveObject(false),
     m_LastUpdateTime(WorldTimer::getMSTime())
 {
 }
@@ -1100,7 +1100,7 @@ void WorldObject::CleanupsBeforeDelete()
 void WorldObject::_Create(ObjectGuid guid, uint32 phaseMask)
 {
     Object::_Create(guid);
-    m_phaseMask = phaseMask;
+    SetPhaseMask(phaseMask, false);
 }
 
 void WorldObject::AddToWorld()
@@ -1136,21 +1136,6 @@ ObjectLockType& WorldObject::GetLock(MapLockType _lockType)
     return GetMap() ? GetMap()->GetLock(_lockType) : sWorld.GetLock(_lockType);
 }
 
-void WorldObject::Relocate(float x, float y, float z, float orientation)
-{
-    Relocate(WorldLocation(GetMapId(), x, y, z, orientation));
-}
-
-void WorldObject::Relocate(float x, float y, float z)
-{
-    Relocate(x, y, z, GetOrientation());
-}
-
-void WorldObject::SetOrientation(float orientation)
-{
-    Relocate(WorldLocation(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ(), orientation));
-}
-
 void WorldObject::Relocate(WorldLocation const& location)
 {
     bool locationChanged    = !bool(location == m_position);
@@ -1165,6 +1150,21 @@ void WorldObject::Relocate(WorldLocation const& location)
         else if (orientationChanged)
             ((Unit*)this)->m_movementInfo.ChangeOrientation(m_position.o);
     }
+}
+
+void WorldObject::Relocate(float x, float y, float z, float orientation)
+{
+    Relocate(WorldLocation(GetMapId(), x, y, z, orientation));
+}
+
+void WorldObject::Relocate(float x, float y, float z)
+{
+    Relocate(x, y, z, GetOrientation());
+}
+
+void WorldObject::SetOrientation(float orientation)
+{
+    Relocate(WorldLocation(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ(), orientation));
 }
 
 uint32 WorldObject::GetZoneId() const
@@ -2038,7 +2038,7 @@ void WorldObject::GetNearPoint(WorldObject const* searcher, float &x, float &y, 
 
 void WorldObject::SetPhaseMask(uint32 newPhaseMask, bool update)
 {
-    m_phaseMask = newPhaseMask;
+    m_position.SetPhaseMask(newPhaseMask);
 
     if (update && IsInWorld())
         UpdateVisibilityAndView();

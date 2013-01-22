@@ -48,7 +48,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
         _player->GetVehicleKit()->RemoveAllPassengers();
 
     // get start teleport coordinates (will used later in fail case)
-    WorldLocation old_loc = GetPlayer()->GetPosition();
+    WorldLocation const& old_loc = GetPlayer()->GetPosition();
 
     // get the teleport destination
     WorldLocation& loc = GetPlayer()->GetTeleportDest();
@@ -58,7 +58,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
     {
         sLog.outError("WorldSession::HandleMoveWorldportAckOpcode: %s was teleported far to a not valid location "
             "(map:%u, x:%f, y:%f, z:%f) We port him to his homebind instead..",
-            GetPlayer()->GetGuidStr().c_str(), loc.GetMapId(), loc.coord_x, loc.coord_y, loc.coord_z);
+            GetPlayer()->GetGuidStr().c_str(), loc.GetMapId(), loc.x, loc.y, loc.z);
         // stop teleportation else we would try this again and again in LogoutPlayer...
         GetPlayer()->SetSemaphoreTeleportFar(false);
         // and teleport the player to a valid place
@@ -81,7 +81,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
         {
             DETAIL_LOG("WorldSession::HandleMoveWorldportAckOpcode: %s was teleported far to nonexisten battleground instance "
                 " (map:%u, x:%f, y:%f, z:%f) Trying to port him to his previous place..",
-                GetPlayer()->GetGuidStr().c_str(), loc.GetMapId(), loc.coord_x, loc.coord_y, loc.coord_z);
+                GetPlayer()->GetGuidStr().c_str(), loc.GetMapId(), loc.x, loc.y, loc.z);
 
             GetPlayer()->SetSemaphoreTeleportFar(false);
 
@@ -129,7 +129,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
 
         DETAIL_LOG("WorldSession::HandleMoveWorldportAckOpcode: %s was teleported far but couldn't be added to map "
             " (map:%u, x:%f, y:%f, z:%f) Trying to port him to his previous place..",
-            GetPlayer()->GetGuidStr().c_str(), loc.GetMapId(), loc.coord_x, loc.coord_y, loc.coord_z);
+            GetPlayer()->GetGuidStr().c_str(), loc.GetMapId(), loc.x, loc.y, loc.z);
 
         // Teleport to previous place, if cannot be ported back TP to homebind place
         if (!GetPlayer()->TeleportTo(old_loc, TELE_TO_NODELAY))
