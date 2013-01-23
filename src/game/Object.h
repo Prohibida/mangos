@@ -118,7 +118,7 @@ struct UpdateFieldData
 class MANGOS_DLL_SPEC Object
 {
     public:
-        virtual ~Object ( );
+        virtual ~Object();
 
         const bool& IsInWorld() const { return m_inWorld; }
         virtual void AddToWorld()
@@ -451,7 +451,7 @@ class MANGOS_DLL_SPEC WorldObject : public Object
                 WorldObject * const m_obj;
         };
 
-        virtual ~WorldObject ( ) {}
+        virtual ~WorldObject();
 
         virtual void Update(uint32 /*update_diff*/, uint32 /*time_diff*/) {}
 

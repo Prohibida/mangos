@@ -69,7 +69,7 @@ class MANGOS_DLL_DECL TransportBase
 
     protected:
         // Helper functions to add/ remove a passenger from the list
-        void BoardPassenger(WorldObject* passenger, float lx, float ly, float lz, float lo, uint8 seat);
+        void BoardPassenger(WorldObject* passenger, float lx, float ly, float lz, float lo, int8 seat);
         void UnBoardPassenger(WorldObject* passenger);
 
         WorldObject* m_owner;                               ///< The transporting unit
@@ -90,11 +90,11 @@ class MANGOS_DLL_DECL TransportBase
 class MANGOS_DLL_DECL TransportInfo
 {
     public:
-        explicit TransportInfo(WorldObject* owner, TransportBase* transport, float lx, float ly, float lz, float lo, uint8 seat);
+        explicit TransportInfo(WorldObject* owner, TransportBase* transport, float lx, float ly, float lz, float lo, int8 seat);
 
         // Set local positions
         void SetLocalPosition(float lx, float ly, float lz, float lo);
-        void SetTransportSeat(uint8 seat) { m_seat = seat; }
+        void SetTransportSeat(int8 seat) { m_seat = seat; }
 
         // Accessors
         WorldObject* GetTransport() const { return m_transport->GetOwner(); }
@@ -121,7 +121,7 @@ class MANGOS_DLL_DECL TransportInfo
         WorldObject* m_owner;                               ///< Passenger
         TransportBase* m_transport;                         ///< Transporter
         Position m_localPosition;
-        uint8 m_seat;
+        int8 m_seat;
 };
 
 #endif

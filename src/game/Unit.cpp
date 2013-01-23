@@ -328,7 +328,6 @@ Unit::~Unit()
         CleanupDeletedHolders(true);
 
         delete m_charmInfo;
-        delete movespline;
     }
     delete m_HostileRefManager;
 
@@ -14012,7 +14011,8 @@ bool Unit::HasMorePoweredBuff(uint32 spellId)
 
 void Unit::UpdateSplineMovement(uint32 t_diff)
 {
-    enum{
+    enum
+    {
         POSITION_UPDATE_DELAY = 400,
     };
 

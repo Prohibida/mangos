@@ -44,14 +44,21 @@ void VisibleNotifier::Notify()
     // but exist one case when this possible and object not out of range: transports
     if (Transport* transport = player.GetTransport())
     {
-        for (Transport::PlayerSet::const_iterator itr = transport->GetPassengers().begin(); itr != transport->GetPassengers().end(); ++itr)
+        for (PassengerMap::const_iterator itr = transport->GetTransportKit()->GetPassengers()->begin(); itr != transport->GetTransportKit()->GetPassengers()->end(); ++itr)
         {
-            if (i_clientGUIDs.find((*itr)->GetObjectGuid()) != i_clientGUIDs.end())
+            WorldObject* obj = itr->first;
+            if (!obj || !obj->IsInWorld())
+                continue;
+
+            if (i_clientGUIDs.find(obj->GetObjectGuid()) != i_clientGUIDs.end())
             {
                 // ignore far sight case
-                (*itr)->UpdateVisibilityOf(*itr, &player);
-                player.UpdateVisibilityOf(&player, *itr, i_data, i_visibleNow);
-                i_clientGUIDs.erase((*itr)->GetObjectGuid());
+                if (obj->GetTypeId() == TYPEID_PLAYER)
+                {
+                    ((Player*)obj)->UpdateVisibilityOf(obj, &player);
+                    player.UpdateVisibilityOf(&player, ((Player*)obj), i_data, i_visibleNow);
+                }
+                i_clientGUIDs.erase(obj->GetObjectGuid());
             }
         }
     }

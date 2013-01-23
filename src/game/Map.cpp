@@ -869,10 +869,8 @@ void Map::Relocation(GameObject* go, float x, float y, float z, float orientatio
     {
         NGridType* oldGrid = getNGrid(old_cell.GridX(), old_cell.GridY());
         RemoveFromGrid(go, oldGrid,old_cell);
-        if (!old_cell.DiffGrid(new_cell) )
-            AddToGrid(go, oldGrid, new_cell);
-        else
-            EnsureGridLoadedAtEnter(new_cell);
+
+        EnsureGridLoadedAtEnter(new_cell);
 
         NGridType* newGrid = getNGrid(new_cell.GridX(), new_cell.GridY());
         go->GetViewPoint().Event_GridChanged(&(*newGrid)(new_cell.CellX(),new_cell.CellY()));
@@ -1097,13 +1095,14 @@ void Map::SendInitSelf( Player * player )
     player->BuildCreateUpdateBlockForPlayer(&data, player);
 
     // build other passengers at transport also (they always visible and marked as visible and will not send at visibility update at add to map
-    if(Transport* transport = player->GetTransport())
+    if (Transport* transport = player->GetTransport())
     {
-        for(Transport::PlayerSet::const_iterator itr = transport->GetPassengers().begin();itr!=transport->GetPassengers().end();++itr)
+        for (PassengerMap::const_iterator itr = transport->GetTransportKit()->GetPassengers()->begin(); itr != transport->GetTransportKit()->GetPassengers()->end(); ++itr)
         {
-            if(player!=(*itr) && player->HaveAtClient(*itr))
+            WorldObject* obj = itr->first;
+            if (obj && obj->IsInWorld() && (player != obj) && player->HaveAtClient(obj))
             {
-                (*itr)->BuildCreateUpdateBlockForPlayer(&data, player);
+                obj->BuildCreateUpdateBlockForPlayer(&data, player);
             }
         }
     }

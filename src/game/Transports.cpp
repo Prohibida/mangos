@@ -28,6 +28,7 @@
 #include "DBCStores.h"
 #include "ProgressBar.h"
 #include "ScriptMgr.h"
+#include "TransportSystem.h"
 
 void MapManager::LoadTransports()
 {
@@ -166,9 +167,15 @@ Transport* MapManager::GetTransportByGOMapId(uint32 mapid)
     return NULL;
 }
 
-Transport::Transport() : GameObject()
+Transport::Transport() : GameObject(), m_transportKit(NULL)
 {
     m_updateFlag = (UPDATEFLAG_TRANSPORT | UPDATEFLAG_HIGHGUID | UPDATEFLAG_HAS_POSITION | UPDATEFLAG_ROTATION);
+}
+
+Transport::~Transport()
+{
+    if (m_transportKit)
+        delete m_transportKit;
 }
 
 bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, float ang, uint8 animprogress, uint16 dynamicHighValue)
@@ -215,6 +222,8 @@ bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, 
     SetUInt16Value(GAMEOBJECT_DYNAMIC, 1, dynamicHighValue);
 
     SetName(goinfo->name);
+
+    m_transportKit = new TransportKit(*this);
 
     return true;
 }
@@ -466,35 +475,37 @@ void Transport::MoveToNextWayPoint()
 void Transport::TeleportTransport(uint32 newMapid, float x, float y, float z)
 {
     Map* oldMap = GetMap();
+    Map* newMap = sMapMgr.CreateMap(newMapid, this);
+    if (!newMap)
+        return;
+
     Relocate(x, y, z);
 
-    for(PlayerSet::iterator itr = m_passengers.begin(); itr != m_passengers.end();)
+    if (!GetTransportKit()->GetPassengers()->empty())
     {
-        PlayerSet::iterator it2 = itr;
-        ++itr;
-
-        Player *plr = *it2;
-        if(!plr)
+        for (PassengerMap::const_iterator itr = GetTransportKit()->GetPassengers()->begin(); itr != GetTransportKit()->GetPassengers()->end(); ++itr)
         {
-            m_passengers.erase(it2);
-            continue;
-        }
+            Player* plr = (Player*)itr->first;
 
-        if (plr->isDead() && !plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
-        {
-            plr->ResurrectPlayer(1.0);
-        }
-        plr->TeleportTo(newMapid, x, y, z, GetOrientation(), TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NODELAY);
+            if (!plr)
+                continue;
 
-        //WorldPacket data(SMSG_811, 4);
-        //data << uint32(0);
-        //plr->GetSession()->SendPacket(&data);
+            if (plr->isDead() && !plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
+            {
+                plr->ResurrectPlayer(1.0);
+            }
+            plr->TeleportTo(newMapid, x, y, z, GetOrientation(), TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NODELAY);
+
+            //WorldPacket data(SMSG_811, 4);
+            //data << uint32(0);
+            //plr->GetSession()->SendPacket(&data);
+        }
     }
+
 
     //we need to create and save new Map object with 'newMapid' because if not done -> lead to invalid Map object reference...
     //player far teleport would try to create same instance, but we need it NOW for transport...
     //correct me if I'm wrong O.o
-    Map* newMap = sMapMgr.CreateMap(newMapid, this);
     SetMap(newMap);
 
     if (oldMap != newMap)
@@ -506,24 +517,21 @@ void Transport::TeleportTransport(uint32 newMapid, float x, float y, float z)
     }
 }
 
-bool Transport::AddPassenger(Player* passenger)
+bool Transport::AddPassenger(WorldObject* passenger)
 {
-    if (m_passengers.find(passenger) == m_passengers.end())
-    {
-        DETAIL_LOG("Player %s boarded transport %s.", passenger->GetName(), GetName());
-        m_passengers.insert(passenger);
-    }
+    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Passenger %s boarded transport %s", passenger->GetObjectGuid().GetString().c_str(), GetName());
+    GetTransportKit()->AddPassenger(passenger);
     return true;
 }
 
-bool Transport::RemovePassenger(Player* passenger)
+bool Transport::RemovePassenger(WorldObject* passenger)
 {
-    if (m_passengers.erase(passenger))
-        DETAIL_LOG("Player %s removed from transport %s.", passenger->GetName(), GetName());
+    GetTransportKit()->RemovePassenger(passenger);
+    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Player %s removed from transport %s.", passenger->GetObjectGuid().GetString().c_str(), GetName());
     return true;
 }
 
-void Transport::Update( uint32 update_diff, uint32 /*p_time*/)
+void Transport::Update(uint32 update_diff, uint32 /*p_time*/)
 {
     if (m_WayPoints.size() <= 1)
         return;
@@ -545,17 +553,14 @@ void Transport::Update( uint32 update_diff, uint32 /*p_time*/)
         }
         else
         {
-            Relocate(m_curr->second.x, m_curr->second.y, m_curr->second.z);
-        }
+            SetPosition(m_curr->second.x, m_curr->second.y, m_curr->second.z, GetOrientation(), false);
 
-        /*
-        for(PlayerSet::const_iterator itr = m_passengers.begin(); itr != m_passengers.end();)
-        {
-            PlayerSet::const_iterator it2 = itr;
-            ++itr;
-            //(*it2)->SetPosition( m_curr->second.x + (*it2)->GetTransOffsetX(), m_curr->second.y + (*it2)->GetTransOffsetY(), m_curr->second.z + (*it2)->GetTransOffsetZ(), (*it2)->GetTransOffsetO() );
+            if (!GetTransportKit()->IsInitialized())
+                GetTransportKit()->Initialize();
+
+            // Update passenger positions
+            GetTransportKit()->Update(update_diff);
         }
-        */
 
         m_nextNodeTime = m_curr->first;
 
@@ -669,7 +674,7 @@ void Transport::Start()
     SetActiveObjectState(true);
     BuildStartMovePacket(GetMap());
 }
- 
+
 void Transport::Stop()
 {
     DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::StartMovement %s (%s) stop moves, period %u/%u",
@@ -680,4 +685,93 @@ void Transport::Stop()
         );
     SetActiveObjectState(false);
     BuildStopMovePacket(GetMap());
+}
+
+bool Transport::SetPosition(float x, float y, float z, float orientation, bool teleport)
+{
+    // prevent crash when a bad coord is sent by the client
+    if (!MaNGOS::IsValidMapCoord(x, y, z, orientation))
+    {
+        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::SetPosition(%f, %f, %f, %f, %d) bad coordinates for transport %s!", x, y, z, orientation, teleport, GetName());
+        return false;
+    }
+
+    bool turn = GetOrientation() != orientation;
+    bool relocate = (teleport || GetPositionX() != x || GetPositionY() != y || GetPositionZ() != z);
+
+    if (relocate)
+    {
+        GetMap()->Relocation((GameObject*)this, x, y, z, orientation);
+    }
+    else if (turn)
+        SetOrientation(orientation);
+
+    return relocate || turn;
+}
+
+/**
+ * @addtogroup TransportSystem
+ * @{
+ *
+ * @class TransportKit
+ * This classe contains the code needed for MaNGOS to provide abstract support for GO transporter
+ */
+
+ 
+TransportKit::TransportKit(Transport& base)
+    : TransportBase(&base), m_isInitialized(false)
+{
+}
+
+TransportKit::~TransportKit()
+{
+    RemoveAllPassengers();
+}
+
+void TransportKit::Initialize()
+{
+    m_isInitialized = true;
+}
+
+void TransportKit::RemoveAllPassengers()
+{
+}
+
+void TransportKit::Reset()
+{
+}
+
+bool TransportKit::AddPassenger(WorldObject* passenger)
+{
+    // Calculate passengers local position
+    float lx, ly, lz, lo;
+    CalculateBoardingPositionOf(passenger->GetPositionX(), passenger->GetPositionY(), passenger->GetPositionZ(), passenger->GetOrientation(), lx, ly, lz, lo);
+    BoardPassenger(passenger, lx, ly, lz, lo, -1);        // Use TransportBase to store the passenger
+    if (passenger->isType(TYPEMASK_UNIT))
+    {
+        Unit* _passenger = (Unit*)passenger;
+        _passenger->m_movementInfo.ClearTransportData();
+        _passenger->m_movementInfo.AddMovementFlag(MOVEFLAG_ONTRANSPORT);
+        _passenger->m_movementInfo.SetTransportData(GetBase()->GetObjectGuid(), lx, ly, lz, lo, 0, -1);
+    }
+}
+
+void TransportKit::RemovePassenger(WorldObject* passenger)
+{
+    UnBoardPassenger(passenger);
+    if (passenger->isType(TYPEMASK_UNIT))
+    {
+        Unit* _passenger = (Unit*)passenger;
+        _passenger->m_movementInfo.ClearTransportData();
+        _passenger->m_movementInfo.RemoveMovementFlag(MOVEFLAG_ONTRANSPORT);
+    }
+}
+
+// Helper function to undo the turning of the vehicle to calculate a relative position of the passenger when boarding
+void TransportKit::CalculateBoardingPositionOf(float gx, float gy, float gz, float go, float &lx, float &ly, float &lz, float &lo)
+{
+    NormalizeRotatedPosition(gx - GetBase()->GetPositionX(), gy - GetBase()->GetPositionY(), lx, ly);
+
+    lz = gz - GetBase()->GetPositionZ();
+    lo = MapManager::NormalizeOrientation(go - GetBase()->GetOrientation());
 }

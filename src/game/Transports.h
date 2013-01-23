@@ -21,15 +21,19 @@
 
 #include "GameObject.h"
 #include "DBCEnums.h"
+#include "TransportSystem.h"
 
 #include <map>
 #include <set>
 #include <string>
 
-class Transport : public GameObject
+class TransportKit;
+
+class MANGOS_DLL_SPEC Transport : public GameObject
 {
     public:
         explicit Transport();
+        virtual ~Transport();
 
         static uint32 GetPossibleMapByEntry(uint32 entry, bool start = true);
         static bool   IsSpawnedAtDifficulty(uint32 entry, Difficulty difficulty);
@@ -37,17 +41,18 @@ class Transport : public GameObject
         bool Create(uint32 guidlow, uint32 mapid, float x, float y, float z, float ang, uint8 animprogress, uint16 dynamicHighValue);
         bool GenerateWaypoints(uint32 pathid, std::set<uint32> &mapids);
         void Update(uint32 update_diff, uint32 p_time) override;
-        bool AddPassenger(Player* passenger);
-        bool RemovePassenger(Player* passenger);
+        bool SetPosition(float x, float y, float z, float orientation, bool teleport);
+
+        bool AddPassenger(WorldObject* passenger);
+        bool RemovePassenger(WorldObject* passenger);
 
         void Start();
         void Stop();
 
+        TransportKit* GetTransportKit() { return m_transportKit; };
+
         void BuildStartMovePacket(Map const *targetMap);
         void BuildStopMovePacket(Map const *targetMap);
-
-        typedef std::set<Player*> PlayerSet;
-        PlayerSet const& GetPassengers() const { return m_passengers; }
 
     private:
         struct WayPoint
@@ -75,8 +80,6 @@ class Transport : public GameObject
         uint32 m_pathTime;
         uint32 m_timer;
 
-        PlayerSet m_passengers;
-
     public:
         WayPointMap m_WayPoints;
         uint32 m_nextNodeTime;
@@ -94,5 +97,33 @@ class Transport : public GameObject
         void SetPeriod(uint32 time) { SetUInt32Value(GAMEOBJECT_LEVEL, time);}
         uint32 GetPeriod() const { return GetUInt32Value(GAMEOBJECT_LEVEL);}
 
+        TransportKit* m_transportKit;
+
 };
+
+class  MANGOS_DLL_SPEC TransportKit : public TransportBase
+{
+    public:
+        explicit TransportKit(Transport& base);
+        virtual ~TransportKit();
+
+        void Initialize();
+        bool IsInitialized() const { return m_isInitialized; }
+
+        void Reset();
+
+        bool AddPassenger(WorldObject* passenger);
+        void RemovePassenger(WorldObject* passenger);
+        void RemoveAllPassengers();
+
+        Transport* GetBase() const { return (Transport*)GetOwner(); }
+        PassengerMap const* GetPassengers() { return &m_passengers; };
+
+    private:
+        // Internal use to calculate the boarding position
+        void CalculateBoardingPositionOf(float gx, float gy, float gz, float go, float &lx, float &ly, float &lz, float &lo);
+
+        bool m_isInitialized;
+};
+
 #endif
