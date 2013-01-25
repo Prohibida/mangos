@@ -7569,9 +7569,9 @@ bool ChatHandler::HandleTransportPathCommand(char* args)
             transport->isActiveObject() ? "active" : "passive",
             transport->GetTransportKit()->GetPassengers()->size(),
             transport->GetCurrent()->first,
-            transport->GetCurrent()->second.x,
-            transport->GetCurrent()->second.y,
-            transport->GetCurrent()->second.z
+            transport->GetCurrent()->second.loc.x,
+            transport->GetCurrent()->second.loc.y,
+            transport->GetCurrent()->second.loc.z
         );
     PSendSysMessage("Transport: %s on map %u (%s), %s, passengers %u, next time %u (map %u xyz %f %f %f)",
             transport->GetObjectGuid().GetString().c_str(), 
@@ -7580,10 +7580,10 @@ bool ChatHandler::HandleTransportPathCommand(char* args)
             transport->isActiveObject() ? "active" : "passive",
             transport->GetTransportKit()->GetPassengers()->size(),
             transport->GetNext()->first,
-            transport->GetNext()->second.mapid,
-            transport->GetNext()->second.x,
-            transport->GetNext()->second.y,
-            transport->GetNext()->second.z
+            transport->GetNext()->second.loc.GetMapId(),
+            transport->GetNext()->second.loc.x,
+            transport->GetNext()->second.loc.y,
+            transport->GetNext()->second.loc.z
         );
 
     return true;

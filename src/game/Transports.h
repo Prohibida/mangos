@@ -41,7 +41,8 @@ class MANGOS_DLL_SPEC Transport : public GameObject
         bool Create(uint32 guidlow, uint32 mapid, float x, float y, float z, float ang, uint8 animprogress, uint16 dynamicHighValue);
         bool GenerateWaypoints(uint32 pathid, std::set<uint32> &mapids);
         void Update(uint32 update_diff, uint32 p_time) override;
-        bool SetPosition(float x, float y, float z, float orientation, bool teleport);
+
+        bool SetPosition(WorldLocation const& loc, bool teleport);
 
         bool AddPassenger(WorldObject* passenger);
         bool RemovePassenger(WorldObject* passenger);
@@ -57,17 +58,13 @@ class MANGOS_DLL_SPEC Transport : public GameObject
     private:
         struct WayPoint
         {
-            WayPoint() : mapid(0), x(0), y(0), z(0), teleport(false) {}
+            WayPoint() : loc(WorldLocation()), teleport(false) {}
             WayPoint(uint32 _mapid, float _x, float _y, float _z, bool _teleport, uint32 _arrivalEventID = 0, uint32 _departureEventID = 0)
-                : mapid(_mapid), x(_x), y(_y), z(_z), teleport(_teleport),
+                : loc(_x, _y, _z, 0.0f, _mapid, 0, 0), teleport(_teleport),
                 arrivalEventID(_arrivalEventID), departureEventID(_departureEventID)
             {
             }
-
-            uint32 mapid;
-            float x;
-            float y;
-            float z;
+            WorldLocation loc;
             bool teleport;
             uint32 arrivalEventID;
             uint32 departureEventID;
@@ -89,7 +86,6 @@ class MANGOS_DLL_SPEC Transport : public GameObject
         WayPointMap::const_iterator GetNext()    { return m_next; }
 
     private:
-        void TeleportTransport(uint32 newMapid, float x, float y, float z);
         void UpdateForMap(Map const* map);
         void DoEventIfAny(WayPointMap::value_type const& node, bool departure);
         void MoveToNextWayPoint();                          // move m_next/m_cur to next points
@@ -118,6 +114,9 @@ class  MANGOS_DLL_SPEC TransportKit : public TransportBase
 
         Transport* GetBase() const { return (Transport*)GetOwner(); }
         PassengerMap const* GetPassengers() { return &m_passengers; };
+
+        void NotifyMapChangeBegin(WorldLocation const& oldloc, WorldLocation const& loc);
+        void NotifyMapChangeEnd(WorldLocation const& loc);
 
     private:
         // Internal use to calculate the boarding position

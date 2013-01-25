@@ -161,8 +161,9 @@ class MANGOS_DLL_DECL MapManager : public MaNGOS::Singleton<MapManager, MaNGOS::
         typedef std::map<uint32/*map_id*/, Transport*> TransportGOMap;
         TransportGOMap m_mapOnTransportGO;
 
-        bool IsTransportMap(uint32 mapid);
-        Transport* GetTransportByGOMapId(uint32 mapid);
+        bool IsTransportMap(uint32 mapid) const;
+        Transport* GetTransportByGOMapId(uint32 mapid) const;
+        uint32 GetTransportMapIdByTransportGuid(ObjectGuid const& guid) const;
 
         //get list of all maps
         const MapMapType& Maps() const { return i_maps; }

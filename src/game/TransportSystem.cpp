@@ -86,24 +86,35 @@ void TransportBase::UpdateGlobalPositions()
 // Update the global position of a passenger
 void TransportBase::UpdateGlobalPositionOf(WorldObject* passenger, float lx, float ly, float lz, float lo) const
 {
+    if (!passenger || !passenger->GetMap() || passenger->GetMap() != m_owner->GetMap())
+        return;
+
     float gx, gy, gz, go;
     CalculateGlobalPositionOf(lx, ly, lz, lo, gx, gy, gz, go);
 
-    if (passenger->GetTypeId() == TYPEID_PLAYER || passenger->GetTypeId() == TYPEID_UNIT)
+    switch(passenger->GetTypeId())
     {
-        if (passenger->GetTypeId() == TYPEID_PLAYER)
-        {
-            m_owner->GetMap()->Relocation((Player*)passenger, gx, gy, gz, go);
-        }
-        else
+        case TYPEID_GAMEOBJECT:
+        case TYPEID_DYNAMICOBJECT:
+            m_owner->GetMap()->Relocation((GameObject*)passenger, gx, gy, gz, go);
+            break;
+        case TYPEID_UNIT:
             m_owner->GetMap()->Relocation((Creature*)passenger, gx, gy, gz, go);
-
-        // If passenger is vehicle
-        if (((Unit*)passenger)->IsVehicle())
-            ((Unit*)passenger)->GetVehicleKit()->UpdateGlobalPositions();
+            // If passenger is vehicle
+            if (((Unit*)passenger)->IsVehicle())
+                ((Unit*)passenger)->GetVehicleKit()->UpdateGlobalPositions();
+            break;
+        case TYPEID_PLAYER:
+            m_owner->GetMap()->Relocation((Player*)passenger, gx, gy, gz, go);
+            // If passenger is vehicle
+            if (((Unit*)passenger)->IsVehicle())
+                ((Unit*)passenger)->GetVehicleKit()->UpdateGlobalPositions();
+            break;
+        case TYPEID_CORPSE:
+        // TODO - add corpse relocation
+        default:
+            break;
     }
-    // ToDo: Add gameobject relocation
-    // ToDo: Add passenger relocation for MO transports
 }
 
 // This rotates the vector (lx, ly) by transporter->orientation

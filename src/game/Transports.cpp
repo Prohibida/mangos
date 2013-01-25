@@ -97,7 +97,7 @@ void MapManager::LoadTransports()
 
         float x, y, z, o;
         uint32 mapid;
-        x = t->m_WayPoints[0].x; y = t->m_WayPoints[0].y; z = t->m_WayPoints[0].z; mapid = t->m_WayPoints[0].mapid; o = 1;
+        x = t->m_WayPoints[0].loc.x; y = t->m_WayPoints[0].loc.y; z = t->m_WayPoints[0].loc.z; mapid = t->m_WayPoints[0].loc.GetMapId(); o = 1.0f;
 
         //current code does not support transports in dungeon!
         const MapEntry* pMapInfo = sMapStore.LookupEntry(mapid);
@@ -151,7 +151,7 @@ void MapManager::LoadTransports()
     }
 }
 
-bool MapManager::IsTransportMap(uint32 mapid)
+bool MapManager::IsTransportMap(uint32 mapid) const
 {
     TransportGOMap::const_iterator itr = m_mapOnTransportGO.find(mapid);
     if (itr != m_mapOnTransportGO.end())
@@ -159,12 +159,23 @@ bool MapManager::IsTransportMap(uint32 mapid)
     return false;
 }
 
-Transport* MapManager::GetTransportByGOMapId(uint32 mapid)
+Transport* MapManager::GetTransportByGOMapId(uint32 mapid) const
 {
     TransportGOMap::const_iterator itr = m_mapOnTransportGO.find(mapid);
     if (itr != m_mapOnTransportGO.end())
         return itr->second;
     return NULL;
+}
+
+uint32 MapManager::GetTransportMapIdByTransportGuid(ObjectGuid const& guid) const
+{
+    for(TransportGOMap::const_iterator itr = m_mapOnTransportGO.begin(); itr != m_mapOnTransportGO.end(); ++itr)
+    {
+        if (itr->second && itr->second->GetObjectGuid() == guid)
+            return itr->first;
+    }
+    // Else return regular map!
+    return 0;
 }
 
 Transport::Transport() : GameObject(), m_transportKit(NULL)
@@ -471,52 +482,6 @@ void Transport::MoveToNextWayPoint()
     if (m_next == m_WayPoints.end())
         m_next = m_WayPoints.begin();
 }
-
-void Transport::TeleportTransport(uint32 newMapid, float x, float y, float z)
-{
-    Map* oldMap = GetMap();
-    Map* newMap = sMapMgr.CreateMap(newMapid, this);
-    if (!newMap)
-        return;
-
-    Relocate(x, y, z);
-
-    if (!GetTransportKit()->GetPassengers()->empty())
-    {
-        for (PassengerMap::const_iterator itr = GetTransportKit()->GetPassengers()->begin(); itr != GetTransportKit()->GetPassengers()->end(); ++itr)
-        {
-            Player* plr = (Player*)itr->first;
-
-            if (!plr)
-                continue;
-
-            if (plr->isDead() && !plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
-            {
-                plr->ResurrectPlayer(1.0);
-            }
-            plr->TeleportTo(newMapid, x, y, z, GetOrientation(), TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NODELAY);
-
-            //WorldPacket data(SMSG_811, 4);
-            //data << uint32(0);
-            //plr->GetSession()->SendPacket(&data);
-        }
-    }
-
-
-    //we need to create and save new Map object with 'newMapid' because if not done -> lead to invalid Map object reference...
-    //player far teleport would try to create same instance, but we need it NOW for transport...
-    //correct me if I'm wrong O.o
-    SetMap(newMap);
-
-    if (oldMap != newMap)
-    {
-        UpdateForMap(oldMap);
-        oldMap->EraseObject(this);
-        UpdateForMap(newMap);
-        newMap->InsertObject(this);
-    }
-}
-
 bool Transport::AddPassenger(WorldObject* passenger)
 {
     DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Passenger %s boarded transport %s", passenger->GetObjectGuid().GetString().c_str(), GetName());
@@ -546,20 +511,13 @@ void Transport::Update(uint32 update_diff, uint32 /*p_time*/)
 
         DoEventIfAny(*m_curr,false);
 
-        // first check help in case client-server transport coordinates de-synchronization
-        if (m_curr->second.mapid != GetMapId() || m_curr->second.teleport)
+        if (SetPosition(m_curr->second.loc, m_curr->second.teleport))
         {
-            TeleportTransport(m_curr->second.mapid, m_curr->second.x, m_curr->second.y, m_curr->second.z);
-        }
-        else
-        {
-            SetPosition(m_curr->second.x, m_curr->second.y, m_curr->second.z, GetOrientation(), false);
-
             if (!GetTransportKit()->IsInitialized())
                 GetTransportKit()->Initialize();
-
-            // Update passenger positions
-            GetTransportKit()->Update(update_diff);
+            else
+                // Update passenger positions
+                GetTransportKit()->Update(update_diff);
         }
 
         m_nextNodeTime = m_curr->first;
@@ -567,7 +525,7 @@ void Transport::Update(uint32 update_diff, uint32 /*p_time*/)
         if (m_curr == m_WayPoints.begin())
             DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, " ************ BEGIN ************** %s", GetName());
 
-        DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "%s moved to %f %f %f %d", GetName(), m_curr->second.x, m_curr->second.y, m_curr->second.z, m_curr->second.mapid);
+        DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "%s moved to %f %f %f %d", GetName(), m_curr->second.loc.x, m_curr->second.loc.y, m_curr->second.loc.z, m_curr->second.loc.GetMapId());
     }
 }
 
@@ -687,27 +645,54 @@ void Transport::Stop()
     BuildStopMovePacket(GetMap());
 }
 
-bool Transport::SetPosition(float x, float y, float z, float orientation, bool teleport)
+// Return true, only if transport has correct position!
+bool Transport::SetPosition(WorldLocation const& loc, bool teleport)
 {
     // prevent crash when a bad coord is sent by the client
-    if (!MaNGOS::IsValidMapCoord(x, y, z, orientation))
+    if (!MaNGOS::IsValidMapCoord(loc.x, loc.y, loc.z, loc.orientation))
     {
-        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::SetPosition(%f, %f, %f, %f, %d) bad coordinates for transport %s!", x, y, z, orientation, teleport, GetName());
+        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::SetPosition(%f, %f, %f, %f, %d) bad coordinates for transport %s!", loc.x, loc.y, loc.z, loc.orientation, teleport, GetName());
         return false;
     }
 
-    bool turn = GetOrientation() != orientation;
-    bool relocate = (teleport || GetPositionX() != x || GetPositionY() != y || GetPositionZ() != z);
-
-    if (relocate)
+    if (teleport || GetMapId() != loc.GetMapId())
     {
-        GetMap()->Relocation((GameObject*)this, x, y, z, orientation);
-    }
-    else if (turn)
-        SetOrientation(orientation);
+        Map* oldMap = GetMap();
+        Map* newMap = sMapMgr.CreateMap(loc.GetMapId(), this);
 
-    return relocate || turn;
+        if (!newMap)
+        {
+            sLog.outError("Transport::SetPosition canot create map %u for transport %s!", loc.GetMapId(), GetName());
+            return false;
+        }
+
+
+        if (oldMap != newMap)
+        {
+            Relocate(loc);
+
+            GetTransportKit()->NotifyMapChangeBegin(GetPosition(), loc);
+
+            UpdateForMap(oldMap);
+            oldMap->EraseObject(this);
+            SetMap(newMap);
+            newMap->InsertObject(this);
+
+            GetMap()->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
+            UpdateForMap(newMap);
+
+            GetTransportKit()->NotifyMapChangeEnd(loc);
+        }
+        else if (!(GetPosition() == loc))
+            GetMap()->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
+    }
+    else if (!(GetPosition() == loc))
+        GetMap()->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
+
+
+    return false;
 }
+
 
 /**
  * @addtogroup TransportSystem
@@ -739,6 +724,7 @@ void TransportKit::RemoveAllPassengers()
 
 void TransportKit::Reset()
 {
+    m_isInitialized = true;
 }
 
 bool TransportKit::AddPassenger(WorldObject* passenger)
@@ -774,4 +760,85 @@ void TransportKit::CalculateBoardingPositionOf(float gx, float gy, float gz, flo
 
     lz = gz - GetBase()->GetPositionZ();
     lo = MapManager::NormalizeOrientation(go - GetBase()->GetOrientation());
+}
+
+void TransportKit::NotifyMapChangeBegin(WorldLocation const& oldloc, WorldLocation const& loc)
+{
+    Map* oldMap = GetBase()->GetMap();
+
+    if (!GetPassengers()->empty())
+    {
+        for (PassengerMap::const_iterator itr = GetPassengers()->begin(); itr != GetPassengers()->end(); ++itr)
+        {
+            WorldObject* obj = itr->first;
+            if (!obj)
+                continue;
+
+            switch(obj->GetTypeId())
+            {
+                case TYPEID_GAMEOBJECT:
+                case TYPEID_DYNAMICOBJECT:
+                    break;
+                case TYPEID_UNIT:
+                    if (obj->GetObjectGuid().IsPet())
+                        break;
+                    // TODO Despawn creatures in old map
+                    break;
+                case TYPEID_PLAYER:
+                {
+
+                    Player* plr = (Player*)obj;
+                    if (!plr)
+                        continue;
+                    if (plr->isDead() && !plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
+                        plr->ResurrectPlayer(1.0);
+                    if (plr->GetSession() && oldloc.GetMapId() != loc.GetMapId())
+                    {
+                        WorldPacket data(SMSG_NEW_WORLD, 4);
+                        data << uint32(sMapMgr.GetTransportMapIdByTransportGuid(GetBase()->GetObjectGuid()));
+                        plr->GetSession()->SendPacket(&data);
+                    }
+                    plr->TeleportTo(loc, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NODELAY);
+//                    plr->TeleportTo(loc, TELE_TO_NOT_LEAVE_TRANSPORT);
+
+                    break;
+                }
+                // TODO - make corpse moving.
+                case TYPEID_CORPSE:
+                default:
+                    break;
+            }
+        }
+    }
+    Reset();
+}
+
+void TransportKit::NotifyMapChangeEnd(WorldLocation const& loc)
+{
+    Map* newMap = GetBase()->GetMap();
+    if (!GetPassengers()->empty())
+    {
+        for (PassengerMap::const_iterator itr = GetPassengers()->begin(); itr != GetPassengers()->end(); ++itr)
+        {
+            WorldObject* obj = itr->first;
+            if (!obj)
+                continue;
+
+            switch(obj->GetTypeId())
+            {
+                case TYPEID_GAMEOBJECT:
+                case TYPEID_DYNAMICOBJECT:
+                    break;
+                case TYPEID_UNIT:
+                    // TODO Spawn creatures in new map
+                    break;
+                case TYPEID_PLAYER:
+                    break;
+                // TODO - make corpse moving.
+                case TYPEID_CORPSE:
+                default:
+                    break;
+            }
+        }
+    }
 }
