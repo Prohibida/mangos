@@ -767,7 +767,7 @@ uint32 Unit::DealDamage(DamageInfo* damageInfo)
 
         ((Creature*)pVictim)->SetLootRecipient(this);
 
-        JustKilledCreature((Creature*)pVictim);
+        JustKilledCreature((Creature*)pVictim, NULL);
 
         pVictim->SetDeathState(JUST_DIED);
         pVictim->SetHealth(0);
@@ -1072,7 +1072,7 @@ uint32 Unit::DealDamage(DamageInfo* damageInfo)
         }
         else                                                // Killed creature
         {
-            JustKilledCreature((Creature*)pVictim);
+            JustKilledCreature((Creature*)pVictim, player_tap);
 
             DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE,"Unit::DealDamage %s JUST_DIED", pVictim->GetGuidStr().c_str());
             pVictim->SetDeathState(JUST_DIED);              // if !spiritOfRedemtionTalentReady always true for unit
@@ -1227,7 +1227,7 @@ struct PetOwnerKilledUnitHelper
     Unit* m_victim;
 };
 
-void Unit::JustKilledCreature(Creature* victim)
+void Unit::JustKilledCreature(Creature* victim, Player* responsiblePlayer)
 {
     if (!victim)
         return;
@@ -1298,6 +1298,9 @@ void Unit::JustKilledCreature(Creature* victim)
     // Notify the outdoor pvp script
     if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(GetZoneId()))
         outdoorPvP->HandleCreatureDeath(victim);
+
+    // Start creature death script
+    GetMap()->ScriptsStart(sCreatureDeathScripts, victim->GetEntry(), victim, responsiblePlayer ? responsiblePlayer : this);
 
     if (victim->IsLinkingEventTrigger())
         victim->GetMap()->GetCreatureLinkingHolder()->DoCreatureLinkingEvent(LINKING_EVENT_DIE, victim);
