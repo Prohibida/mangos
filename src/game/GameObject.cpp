@@ -243,6 +243,7 @@ void GameObject::Update(uint32 update_diff, uint32 p_time)
     {
         //GetTransportKit()->Update(update_diff, diff);
         //DEBUG_LOG("Transport::Update %s", GetObjectGuid().GetString().c_str());
+        // TODO - move spline update to more correct place
         UpdateSplineMovement(p_time);
         return;
     }
@@ -557,10 +558,6 @@ void GameObject::Update(uint32 update_diff, uint32 p_time)
 
 void GameObject::UpdateSplineMovement(uint32 t_diff)
 {
-    enum
-    {
-        POSITION_UPDATE_DELAY = 400,
-    };
 
     if (movespline->Finalized())
         return;
@@ -568,6 +565,7 @@ void GameObject::UpdateSplineMovement(uint32 t_diff)
     movespline->updateState(t_diff);
     bool arrived = movespline->Finalized();
 /*
+    TODO: DB script support instead of direct in Transport class
     if (arrived)
         Script run on_arrived;
 */
@@ -575,7 +573,7 @@ void GameObject::UpdateSplineMovement(uint32 t_diff)
 
     if (m_movesplineTimer.Passed() || arrived)
     {
-        m_movesplineTimer.Reset(POSITION_UPDATE_DELAY);
+        m_movesplineTimer.Reset(sWorld.getConfig(CONFIG_UINT32_POSITION_UPDATE_DELAY));
         Location loc = movespline->ComputePosition();
 
         if (IsBoarded())

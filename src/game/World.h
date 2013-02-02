@@ -219,6 +219,7 @@ enum eConfigUInt32Values
     CONFIG_UINT32_VMSS_FORCEUNLOADDELAY,
     CONFIG_UINT32_WORLD_STATE_EXPIRETIME,
     CONFIG_UINT32_OBJECTLOADINGSPLITTER_ALLOWEDTIME,
+    CONFIG_UINT32_POSITION_UPDATE_DELAY,
     CONFIG_UINT32_VALUE_COUNT
 };
 
@@ -654,7 +655,7 @@ class World
         static float GetVisibleUnitGreyDistance()           { return m_VisibleUnitGreyDistance;       }
         static float GetVisibleObjectGreyDistance()         { return m_VisibleObjectGreyDistance;     }
 
-        static float GetRelocationLowerLimitSq()            { return m_relocation_lower_limit_sq; }
+        static float GetRelocationLowerLimit()              { return m_relocation_lower_limit; }
         static uint32 GetRelocationAINotifyDelay()          { return m_relocation_ai_notify_delay; }
 
         void ProcessCliCommands();
@@ -753,7 +754,7 @@ class World
         static float m_VisibleUnitGreyDistance;
         static float m_VisibleObjectGreyDistance;
 
-        static float  m_relocation_lower_limit_sq;
+        static float  m_relocation_lower_limit;
         static uint32 m_relocation_ai_notify_delay;
 
         // CLI command holder to be thread safe
