@@ -22,7 +22,6 @@ ConfVersion=2013012201
 #        Default: "" - no log directory prefix. if used log names aren't absolute paths
 #                      then logs will be stored in the current directory of the running program.
 #
-#
 #    LoginDatabaseInfo
 #    WorldDatabaseInfo
 #    CharacterDatabaseInfo
@@ -37,9 +36,9 @@ ConfVersion=2013012201
 #                    hostname;port;username;password;database
 #                    .;/path/to/unix_socket/DIRECTORY or . for default path;username;password;database - use Unix sockets at Unix/Linux
 #
-#   LoginDatabaseConnections
-#   WorldDatabaseConnections
-#   CharacterDatabaseConnections
+#    LoginDatabaseConnections
+#    WorldDatabaseConnections
+#    CharacterDatabaseConnections
 #        Amount of connections to database which will be used for SELECT queries. Maximum 16 connections per database.
 #        Please, note, for data consistency only one connection for each database is used for transactions and async SELECTs.
 #        So formula to find out how many connections will be established: X = n_connections + 1
@@ -152,6 +151,7 @@ BindIP = "0.0.0.0"
 #        Default: 1 (Enabled)
 #                 0 (Disabled)
 #
+<<<<<<< HEAD
 #    vmap.Dynamic.DoubleCheck
 #        Enable/Disable dynamic VMap based double check for LOS (needed for "In GO state").
 #        Requires Vmaps && Dynamic VMaps enabled to work.
@@ -159,6 +159,8 @@ BindIP = "0.0.0.0"
 #                 1 (Enabled)
 #
 #
+=======
+>>>>>>> master
 #    DetectPosCollision
 #        Check final move position, summon position, etc for visible collision with other objects or
 #        wall (wall only if vmaps are enabled)
@@ -234,6 +236,15 @@ BindIP = "0.0.0.0"
 #        Min:     5    ( less then 3 - objects not be loaded anyway )
 #        Max:     1000 ( value more may cause false-freeze detection )
 #
+<<<<<<< HEAD
+=======
+#    Calendar.RemoveExpiredEvents
+#        Delay (in hours) to remove expired events from the calendar.
+#        Default: -1  (never)
+#                  0  (at once)
+#                  1+ (delay hours (8760 - one year))
+#
+>>>>>>> master
 #    MapUpdate.PositionUpdateDelay
 #        Time (in ms!) for recalculation unit/GO position while spline movement.
 #        Default: 400 (0,4s)
@@ -274,6 +285,10 @@ MapUpdate.MaxVisitorsInUpdate = 9
 MapUpdate.MaxVisitsInUpdate = 10
 vmap.Dynamic.DoubleCheck = 0
 ObjectLoadingSplitter.MaxAllowedTime = 10
+<<<<<<< HEAD
+=======
+Calendar.RemoveExpiredEvents = -1
+>>>>>>> master
 MapUpdate.PositionUpdateDelay = 400
 
 ###################################################################################################################
@@ -417,21 +432,21 @@ LogFileLevel = 0
 LogFilter_AchievementUpdates = 1
 LogFilter_CreatureMoves = 1
 LogFilter_TransportMoves = 1
+LogFilter_PlayerMoves = 1
 LogFilter_VisibilityChanges = 1
 LogFilter_Weather = 1
 LogFilter_DbStrictedCheck = 1
+LogFilter_SQLText = 1
 LogFilter_Pathfinding = 1
+LogFilter_Calendar = 1
 LogFilter_MapLoading = 1
 LogFilter_EventAiDev = 1
 LogFilter_PeriodicAffects = 0
-LogFilter_PlayerMoves = 1
-LogFilter_SQLText = 1
 LogFilter_AIAndMovegens = 0
 LogFilter_PlayerStats = 0
 LogFilter_Damage = 0
 LogFilter_Combat = 0
 LogFilter_SpellCast = 0
-LogFilter_Calendar = 1
 WorldLogFile = ""
 WorldLogTimestamp = 0
 DBErrorLogFile = "DBErrors.log"
@@ -2022,12 +2037,12 @@ CharDelete.KeepDays = 30
 #    Rate.RAF.LevelPerLevel  = 0.5 (bonus levels per referal level)
 #
 ###################################################################################################################
+
 RAF.MaxGrantLevel       = 60
 RAF.MaxReferals         = 5
 RAF.MaxReferers         = 5
 Rate.RAF.XP             = 3
 Rate.RAF.LevelPerLevel  = 0.5
-
 
 ###################################################################################################################
 #    LFG Dungeon finder system
@@ -2049,6 +2064,7 @@ Rate.RAF.LevelPerLevel  = 0.5
 #        default:            = ""
 #
 ###################################################################################################################
+
 LFR.Enable              = 1
 LFG.Enable              = 1
 LFG.Debug               = 0
@@ -2112,7 +2128,7 @@ LFG.DisableDungeonMapIds= ""
 #        Default: 1 - on
 #
 #    PlayerbotAI.Collect.Objects
-#        Enable collection options nearby objects 
+#        Enable collection options nearby objects
 #                 0 - off
 #        Default: 1 - on
 #
@@ -2191,7 +2207,7 @@ VMSS.ForceUnloadDelay = 3000
 #
 #    DuelReset.AreaIds
 #        List of area's ids where Duel Reset Script will be enabled. With delimiter ','. You can lookup areas going with a GM to X zone and typing .gps
-#        Default: "12,14,4570" Outdoor Stormwind, Outdoor Orgrimmar, Dalaran's Circle of Wills 
+#        Default: "12,14,4570" Outdoor Stormwind, Outdoor Orgrimmar, Dalaran's Circle of Wills
 #
 ###################################################################################################################
 DuelReset.Enable = 0
