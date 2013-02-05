@@ -29,6 +29,8 @@
 #include "ProgressBar.h"
 #include "ScriptMgr.h"
 #include "TransportSystem.h"
+#include "movement/MoveSplineInit.h"
+#include "movement/MoveSpline.h"
 
 void MapManager::LoadTransports()
 {
@@ -237,6 +239,9 @@ bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, 
     SetName(goinfo->name);
 
     m_transportKit = new TransportKit(*this);
+
+    m_anchorageTimer.SetInterval(0);
+    m_anchorageTimer.Reset();
 
     return true;
 }
@@ -498,20 +503,53 @@ bool Transport::RemovePassenger(WorldObject* passenger)
     return true;
 }
 
-void Transport::Update(uint32 update_diff, uint32 /*p_time*/)
+void Transport::Update(uint32 update_diff, uint32 p_time)
 {
+
+    UpdateSplineMovement(p_time);
+
+    if (!movespline->Finalized())
+        return;
+
     if (m_WayPoints.size() <= 1)
         return;
+
+    bool anchorage = !m_anchorageTimer.Passed();
+    if (anchorage)
+    {
+        m_anchorageTimer.Update(update_diff);
+        if (m_anchorageTimer.Passed())
+        {
+            // TODO - use MovementGenerator instead this
+            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Transport::Update %s start spline movement to %f %f %f",GetObjectGuid().GetString().c_str(), m_next->second.loc.x, m_next->second.loc.y, m_next->second.loc.z);
+            Movement::MoveSplineInit<GameObject*> init(*this);
+            init.MoveTo((Vector3)m_next->second.loc);
+            init.SetVelocity(GetGOInfo()->moTransport.moveSpeed);
+            init.Launch();
+
+            m_anchorageTimer.SetInterval(0);
+            m_anchorageTimer.Reset();
+        }
+    }
 
     m_timer = WorldTimer::getMSTime() % m_period;
     while (((m_timer - m_curr->first) % m_pathTime) > ((m_next->first - m_curr->first) % m_pathTime))
     {
+
+        // delay detect
+        uint32 delta = abs(m_next->first - m_curr->first);
+        if (delta > 5000)
+        {
+            m_anchorageTimer.SetInterval(delta);
+            m_anchorageTimer.Reset();
+        }
 
         DoEventIfAny(*m_curr,true);
 
         MoveToNextWayPoint();
 
         DoEventIfAny(*m_curr,false);
+
 
         if (SetPosition(m_curr->second.loc, m_curr->second.teleport))
         {
@@ -520,6 +558,17 @@ void Transport::Update(uint32 update_diff, uint32 /*p_time*/)
             else
                 // Update passenger positions
                 GetTransportKit()->Update(update_diff);
+        }
+        else if (m_curr->second.loc.GetMapId() == m_next->second.loc.GetMapId()
+            && !m_curr->second.teleport
+            && m_anchorageTimer.Passed())
+        {
+            // TODO - use MovementGenerator instead this
+            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Transport::Update %s start spline movement to %f %f %f",GetObjectGuid().GetString().c_str(), m_next->second.loc.x, m_next->second.loc.y, m_next->second.loc.z);
+            Movement::MoveSplineInit<GameObject*> init(*this);
+            init.MoveTo((Vector3)m_next->second.loc);
+            init.SetVelocity(GetGOInfo()->moTransport.moveSpeed);
+            init.Launch();
         }
 
         m_nextNodeTime = m_curr->first;
@@ -770,6 +819,7 @@ void TransportKit::NotifyMapChangeBegin(WorldLocation const& oldloc, WorldLocati
 
     if (!GetPassengers()->empty())
     {
+        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportKit::NotifyMapChangeBegin %s notify passengers (count %u) for change map from %u to %u",GetBase()->GetObjectGuid().GetString().c_str(), GetPassengers()->size(), oldloc.GetMapId(), loc.GetMapId());
         for (PassengerMap::const_iterator itr = GetPassengers()->begin(); itr != GetPassengers()->end(); ++itr)
         {
             WorldObject* obj = itr->first;
@@ -820,6 +870,7 @@ void TransportKit::NotifyMapChangeEnd(WorldLocation const& loc)
     Map* newMap = GetBase()->GetMap();
     if (!GetPassengers()->empty())
     {
+        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportKit::NotifyMapChangeEnd %s notify passengers (count %u) for finished change map to %u",GetBase()->GetObjectGuid().GetString().c_str(), GetPassengers()->size(), loc.GetMapId());
         for (PassengerMap::const_iterator itr = GetPassengers()->begin(); itr != GetPassengers()->end(); ++itr)
         {
             WorldObject* obj = itr->first;

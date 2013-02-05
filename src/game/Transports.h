@@ -94,6 +94,7 @@ class MANGOS_DLL_SPEC Transport : public GameObject
         uint32 GetPeriod() const { return GetUInt32Value(GAMEOBJECT_LEVEL);}
 
         TransportKit* m_transportKit;
+        IntervalTimer  m_anchorageTimer;
 
 };
 

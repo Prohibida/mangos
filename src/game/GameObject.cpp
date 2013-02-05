@@ -239,15 +239,6 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map* map, uint32 phaseMa
 
 void GameObject::Update(uint32 update_diff, uint32 p_time)
 {
-    if (GetObjectGuid().IsMOTransport())
-    {
-        //GetTransportKit()->Update(update_diff, diff);
-        //DEBUG_LOG("Transport::Update %s", GetObjectGuid().GetString().c_str());
-        // TODO - move spline update to more correct place
-        UpdateSplineMovement(p_time);
-        return;
-    }
-
     switch (m_lootState)
     {
         case GO_NOT_READY:
@@ -554,11 +545,11 @@ void GameObject::Update(uint32 update_diff, uint32 p_time)
             break;
         }
     }
+    UpdateSplineMovement(p_time);
 }
 
 void GameObject::UpdateSplineMovement(uint32 t_diff)
 {
-
     if (movespline->Finalized())
         return;
 
@@ -574,12 +565,13 @@ void GameObject::UpdateSplineMovement(uint32 t_diff)
     if (m_movesplineTimer.Passed() || arrived)
     {
         m_movesplineTimer.Reset(sWorld.getConfig(CONFIG_UINT32_POSITION_UPDATE_DELAY));
+
         Location loc = movespline->ComputePosition();
 
         if (IsBoarded())
             GetTransportInfo()->SetLocalPosition(loc.x, loc.y, loc.z, loc.orientation);
         else
-            Relocate(loc.x,loc.y,loc.z,loc.orientation);
+            Relocate(loc.x, loc.y, loc.z, loc.orientation);
     }
 }
 
