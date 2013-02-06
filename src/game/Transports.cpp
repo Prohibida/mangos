@@ -110,7 +110,7 @@ void MapManager::LoadTransports()
         }
 
         // creates the Gameobject
-        if (!t->Create(entry, mapid, x, y, z, o, GO_ANIMPROGRESS_DEFAULT, 0))
+        if (!t->Create(entry, mapid, x, y, z, o, GO_ANIMPROGRESS_DEFAULT, GO_DYNFLAG_LO_NONE))
         {
             delete t;
             continue;
@@ -125,6 +125,8 @@ void MapManager::LoadTransports()
         Map* map = sMapMgr.CreateMap(mapid, t);
         t->SetMap(map);
         map->InsertObject(t);
+
+        //t->Start();
 
         ++count;
     } while(result->NextRow());
@@ -191,7 +193,7 @@ Transport::~Transport()
         delete m_transportKit;
 }
 
-bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, float ang, uint8 animprogress, uint16 dynamicHighValue)
+bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, float ang, uint8 animprogress, uint16 dynamicLowValue)
 {
     Relocate(x,y,z,ang);
     // instance id and phaseMask isn't set to values different from std.
@@ -225,14 +227,14 @@ bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, 
 
     SetDisplayId(goinfo->displayId);
 
-    SetGoState(GO_STATE_READY);
+    //SetGoState(GO_STATE_READY);
+    SetGoState(GO_STATE_ACTIVE);
     SetGoType(GameobjectTypes(goinfo->type));
     SetGoArtKit(0);
     SetGoAnimProgress(animprogress);
 
-    // low part always 0, dynamicHighValue is some kind of progression (not implemented)
-    SetUInt16Value(GAMEOBJECT_DYNAMIC, 0, 0);
-    SetUInt16Value(GAMEOBJECT_DYNAMIC, 1, dynamicHighValue);
+    SetUInt16Value(GAMEOBJECT_DYNAMIC, 0, dynamicLowValue);
+    SetUInt16Value(GAMEOBJECT_DYNAMIC, 1, 0);
 
     SetName(goinfo->name);
 

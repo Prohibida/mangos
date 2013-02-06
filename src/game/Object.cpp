@@ -345,13 +345,8 @@ void Object::BuildMovementUpdate(ByteBuffer * data, uint16 updateFlags) const
         if (updateFlags & UPDATEFLAG_POSITION)
         {
             ObjectGuid transportGuid;
-            if (GetObjectGuid().IsUnit())
-            {
-                if (((Unit*)this)->m_movementInfo.HasMovementFlag(MOVEFLAG_ONTRANSPORT))
-                    transportGuid = ((Unit*)this)->m_movementInfo.GetTransportGuid();
-            }
-            else if (Transport* transport = ((WorldObject*)this)->GetTransport())
-                transportGuid = transport->GetObjectGuid();
+            if (((WorldObject*)this)->GetTransportInfo())
+                transportGuid = ((WorldObject*)this)->GetTransportInfo()->GetTransportGuid();
 
             if (transportGuid)
                 *data << transportGuid.WriteAsPacked();
@@ -387,14 +382,7 @@ void Object::BuildMovementUpdate(ByteBuffer * data, uint16 updateFlags) const
             if (updateFlags & UPDATEFLAG_HAS_POSITION)
             {
                 // 0x02
-                if ((updateFlags & UPDATEFLAG_TRANSPORT) && ((GameObject*)this)->GetGoType() == GAMEOBJECT_TYPE_MO_TRANSPORT)
-                {
-                    *data << float(0);
-                    *data << float(0);
-                    *data << float(0);
-                    *data << float(((WorldObject *)this)->GetOrientation());
-                }
-                else if (updateFlags & UPDATEFLAG_TRANSPORT)
+                if (updateFlags & UPDATEFLAG_TRANSPORT && !GetObjectGuid().IsMOTransport())
                 {
                     *data << float(((WorldObject*)this)->GetTransOffsetX());
                     *data << float(((WorldObject*)this)->GetTransOffsetY());
@@ -403,10 +391,10 @@ void Object::BuildMovementUpdate(ByteBuffer * data, uint16 updateFlags) const
                 }
                 else
                 {
-                    *data << float(((WorldObject *)this)->GetPositionX());
-                    *data << float(((WorldObject *)this)->GetPositionY());
-                    *data << float(((WorldObject *)this)->GetPositionZ());
-                    *data << float(((WorldObject *)this)->GetOrientation());
+                    *data << float(((WorldObject*)this)->GetPositionX());
+                    *data << float(((WorldObject*)this)->GetPositionY());
+                    *data << float(((WorldObject*)this)->GetPositionZ());
+                    *data << float(((WorldObject*)this)->GetOrientation());
                 }
             }
         }
@@ -698,34 +686,30 @@ void Object::BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask *
                     // GAMEOBJECT_TYPE_DUNGEON_DIFFICULTY can have lo flag = 2
                     //      most likely related to "can enter map" and then should be 0 if can not enter
 
-                    if (IsActivateToQuest)
+                    switch(((GameObject*)this)->GetGoType())
                     {
-                        switch(((GameObject*)this)->GetGoType())
-                        {
-                            case GAMEOBJECT_TYPE_QUESTGIVER:
-                                // GO also seen with GO_DYNFLAG_LO_SPARKLE explicit, relation/reason unclear (192861)
-                                *data << uint16(GO_DYNFLAG_LO_ACTIVATE);
-                                *data << uint16(-1);
-                                break;
-                            case GAMEOBJECT_TYPE_CHEST:
-                            case GAMEOBJECT_TYPE_GENERIC:
-                            case GAMEOBJECT_TYPE_SPELL_FOCUS:
-                            case GAMEOBJECT_TYPE_GOOBER:
-                                *data << uint16(GO_DYNFLAG_LO_ACTIVATE | GO_DYNFLAG_LO_SPARKLE);
-                                *data << uint16(-1);
-                                break;
-                            default:
-                                // unknown, not happen.
-                                *data << uint16(0);
-                                *data << uint16(-1);
-                                break;
-                        }
-                    }
-                    else
-                    {
-                        // disable quest object
-                        *data << uint16(0);
-                        *data << uint16(-1);
+                        case GAMEOBJECT_TYPE_QUESTGIVER:
+                            // GO also seen with GO_DYNFLAG_LO_SPARKLE explicit, relation/reason unclear (192861)
+                            *data << uint16(IsActivateToQuest ? GO_DYNFLAG_LO_ACTIVATE : GO_DYNFLAG_LO_NONE);
+                            *data << uint16(-1);
+                            break;
+                        case GAMEOBJECT_TYPE_CHEST:
+                        case GAMEOBJECT_TYPE_GENERIC:
+                        case GAMEOBJECT_TYPE_SPELL_FOCUS:
+                        case GAMEOBJECT_TYPE_GOOBER:
+                            *data << uint16(IsActivateToQuest ? (GO_DYNFLAG_LO_ACTIVATE | GO_DYNFLAG_LO_SPARKLE) : GO_DYNFLAG_LO_NONE);
+                            *data << uint16(-1);
+                            break;
+                        case GAMEOBJECT_TYPE_TRANSPORT:
+                        case GAMEOBJECT_TYPE_MO_TRANSPORT:
+                            *data << uint16(((GameObject*)this)->GetGoState() != GO_STATE_ACTIVE ? GO_DYNFLAG_LO_TRANSPORT_STOP : GO_DYNFLAG_LO_NONE);
+                            *data << uint16(-1);
+                            break;
+                        default:
+                            // unknown, not happen.
+                            *data << uint16(GO_DYNFLAG_LO_NONE);
+                            *data << uint16(-1);
+                            break;
                     }
                 }
                 else
