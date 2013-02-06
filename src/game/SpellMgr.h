@@ -943,7 +943,17 @@ struct SpellTargetEntry
 typedef UNORDERED_MULTIMAP<uint32,SpellTargetEntry> SpellScriptTarget;
 typedef std::pair<SpellScriptTarget::const_iterator,SpellScriptTarget::const_iterator> SpellScriptTargetBounds;
 
-typedef UNORDERED_MAP<uint32, WorldLocation> SpellTargetPositionMap;
+// coordinates for spells (accessed using SpellMgr functions)
+struct SpellTargetPosition
+{
+    uint32 target_mapId;
+    float  target_X;
+    float  target_Y;
+    float  target_Z;
+    float  target_Orientation;
+};
+
+typedef UNORDERED_MAP<uint32, SpellTargetPosition> SpellTargetPositionMap;
 
 // Spell linked types
 enum SpellLinkedType
@@ -1251,7 +1261,7 @@ class SpellMgr
         }
 
         // Spell target coordinates
-        WorldLocation const* GetSpellTargetPosition(uint32 spell_id) const
+        SpellTargetPosition const* GetSpellTargetPosition(uint32 spell_id) const
         {
             SpellTargetPositionMap::const_iterator itr = mSpellTargetPositions.find( spell_id );
             if ( itr != mSpellTargetPositions.end( ) )
