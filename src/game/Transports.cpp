@@ -29,8 +29,6 @@
 #include "ProgressBar.h"
 #include "ScriptMgr.h"
 #include "TransportSystem.h"
-#include "movement/MoveSplineInit.h"
-#include "movement/MoveSpline.h"
 
 void MapManager::LoadTransports()
 {
@@ -500,14 +498,8 @@ bool Transport::RemovePassenger(WorldObject* passenger)
     return true;
 }
 
-void Transport::Update(uint32 update_diff, uint32 p_time)
+void Transport::Update(uint32 update_diff, uint32 /*p_time*/)
 {
-
-    UpdateSplineMovement(p_time);
-
-    if (!movespline->Finalized())
-        return;
-
     if (m_WayPoints.size() <= 1)
         return;
 
@@ -528,15 +520,6 @@ void Transport::Update(uint32 update_diff, uint32 p_time)
             else
                 // Update passenger positions
                 GetTransportKit()->Update(update_diff);
-        }
-        else if (!m_curr->second.teleport)
-        {
-            // TODO - use MovementGenerator instead this
-            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Transport::Update %s start spline movement to %f %f %f",GetObjectGuid().GetString().c_str(), m_next->second.loc.x, m_next->second.loc.y, m_next->second.loc.z);
-            Movement::MoveSplineInit<GameObject*> init(*this);
-            init.MoveTo((Vector3)m_next->second.loc);
-            init.SetVelocity(GetGOInfo()->moTransport.moveSpeed);
-            init.Launch();
         }
 
         m_nextNodeTime = m_curr->first;
