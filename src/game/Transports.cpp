@@ -124,9 +124,10 @@ void MapManager::LoadTransports()
         //If we someday decide to use the grid to track transports, here:
         Map* map = sMapMgr.CreateMap(mapid, t);
         t->SetMap(map);
+
         map->InsertObject(t);
 
-        //t->Start();
+        t->Start();
 
         ++count;
     } while(result->NextRow());
@@ -227,8 +228,7 @@ bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, 
 
     SetDisplayId(goinfo->displayId);
 
-    //SetGoState(GO_STATE_READY);
-    SetGoState(GO_STATE_ACTIVE);
+    SetGoState(GO_STATE_READY);
     SetGoType(GameobjectTypes(goinfo->type));
     SetGoArtKit(0);
     SetGoAnimProgress(animprogress);

@@ -867,6 +867,9 @@ void Map::Relocation(GameObject* go, float x, float y, float z, float orientatio
 
     if (old_cell != new_cell)
     {
+        // Need check for spawn some GO in not loaded grids
+        EnsureGridLoadedAtEnter(old_cell);
+
         NGridType* oldGrid = getNGrid(old_cell.GridX(), old_cell.GridY());
         RemoveFromGrid(go, oldGrid,old_cell);
 
