@@ -7466,12 +7466,9 @@ float Unit::GetCombatDistance( const Unit* target ) const
     if (!target)
         return 0.0f;
 
-    float radius = target->GetFloatValue(UNIT_FIELD_COMBATREACH) + GetFloatValue(UNIT_FIELD_COMBATREACH);
-    float dx = GetPositionX() - target->GetPositionX();
-    float dy = GetPositionY() - target->GetPositionY();
-    float dz = GetPositionZ() - target->GetPositionZ();
-    float dist = sqrt((dx*dx) + (dy*dy) + (dz*dz)) - radius;
-    return ( dist > 0 ? dist : 0);
+    float radius = GetFloatValue(UNIT_FIELD_COMBATREACH) + target->GetFloatValue(UNIT_FIELD_COMBATREACH);
+    float dist = GetPosition().GetDistance(target->GetPosition()) - radius;
+    return (dist > M_NULL_F ? dist : 0.0f);
 }
 
 void Unit::SetPet(Pet* pet)
@@ -12248,7 +12245,7 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, DamageInfo* damageInfo)
 
         // For players set spell cooldown if need
         uint32 cooldown = 0;
-        if (GetTypeId() == TYPEID_PLAYER && spellProcEvent && spellProcEvent->cooldown)
+        if (spellProcEvent && spellProcEvent->cooldown)
             cooldown = spellProcEvent->cooldown;
 
         for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
