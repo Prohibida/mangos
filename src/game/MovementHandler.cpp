@@ -366,7 +366,7 @@ void WorldSession::HandleForceSpeedChangeAckOpcodes(WorldPacket &recv_data)
             return;
     }
 
-    if (!_player->GetTransport() && fabs(_player->GetSpeed(move_type) - newspeed) > 0.01f)
+    if (!_player->IsOnTransport() && fabs(_player->GetSpeed(move_type) - newspeed) > 0.01f)
     {
         if(_player->GetSpeed(move_type) > newspeed)         // must be greater - just correct
         {
@@ -559,7 +559,7 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
     {
         if (movementInfo.HasMovementFlag(MOVEFLAG_ONTRANSPORT))
         {
-            if (!plMover->GetTransport())
+            if (!plMover->IsOnTransport())
             {
                 /* process anticheat check */
                 GetPlayer()->GetAntiCheat()->DoAntiCheatCheck(CHECK_TRANSPORT,movementInfo);
@@ -573,7 +573,7 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
                 }
             }
         }
-        else if (plMover->GetTransport())               // if we were on a transport, leave
+        else if (plMover->IsOnTransport())               // if we were on a transport, leave
         {
             plMover->GetTransport()->RemovePassenger(plMover);
             movementInfo.ClearTransportData();

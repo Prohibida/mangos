@@ -1787,7 +1787,7 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
         grp->SetPlayerMap(GetObjectGuid(), loc.GetMapId());
 
     // if we were on a transport, leave
-    if (!(options & TELE_TO_NOT_LEAVE_TRANSPORT) && GetTransport())
+    if (!(options & TELE_TO_NOT_LEAVE_TRANSPORT) && IsOnTransport())
     {
         GetTransport()->RemovePassenger(this);
         m_movementInfo.ClearTransportData();
@@ -1809,7 +1809,7 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
     m_movementInfo.SetMovementFlags(MOVEFLAG_NONE);
     DisableSpline();
 
-    if (GetMap() && GetMapId() == loc.GetMapId() && !GetTransport())
+    if (GetMap() && GetMapId() == loc.GetMapId() && !IsOnTransport())
     {
         //lets reset far teleport flag if it wasn't reset during chained teleports
         SetSemaphoreTeleportFar(false);
@@ -4953,7 +4953,7 @@ void Player::RepopAtGraveyard()
     AreaTableEntry const *zone = GetAreaEntryByAreaID(GetAreaId());
 
     // Such zones are considered unreachable as a ghost and the player must be automatically revived
-    if ((!isAlive() && zone && (zone->flags & AREA_FLAG_NEED_FLY)) || GetTransport() || GetPositionZ() < -500.0f)
+    if ((!isAlive() && zone && (zone->flags & AREA_FLAG_NEED_FLY)) || IsOnTransport() || GetPositionZ() < -500.0f)
     {
         ResurrectPlayer(0.5f);
         SpawnCorpseBones();
@@ -15925,34 +15925,11 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
         }
     }
 
-    ObjectGuid transportGuid;
     if (transGUID != 0)
     {
-        transportGuid = ObjectGuid(HIGHGUID_MO_TRANSPORT,transGUID);
-        m_movementInfo.SetTransportData(transportGuid, fields[26].GetFloat(), fields[27].GetFloat(), fields[28].GetFloat(), fields[29].GetFloat(), 0, -1);
-
-        if (!MaNGOS::IsValidMapCoord(
-            GetPositionX() + m_movementInfo.GetTransportPos()->x, GetPositionY() + m_movementInfo.GetTransportPos()->y,
-            GetPositionZ() + m_movementInfo.GetTransportPos()->z, GetOrientation() + m_movementInfo.GetTransportPos()->o) ||
-            // transport size limited
-            m_movementInfo.GetTransportPos()->x > 50 || m_movementInfo.GetTransportPos()->y > 50 || m_movementInfo.GetTransportPos()->z > 50)
-        {
-            sLog.outError("%s have invalid transport coordinates (X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",
-                guid.GetString().c_str(), GetPositionX() + m_movementInfo.GetTransportPos()->x, GetPositionY() + m_movementInfo.GetTransportPos()->y,
-                GetPositionZ() + m_movementInfo.GetTransportPos()->z, GetOrientation() + m_movementInfo.GetTransportPos()->o);
-
-            RelocateToHomebind();
-
-            m_movementInfo.ClearTransportData();
-
-            transGUID = 0;
-        }
-    }
-
-    if (transGUID != 0)
-    {
-
+        ObjectGuid transportGuid = ObjectGuid(HIGHGUID_MO_TRANSPORT,transGUID);
         Transport* transport = sMapMgr.GetTransportByGuid(transportGuid);
+
         if (transport)
         {
             MapEntry const* transMapEntry = sMapStore.LookupEntry(transport->GetMapId());
@@ -15963,20 +15940,33 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
             }
             else
             {
+                Relocate(transport->GetPosition());
                 SetLocationMapId(transport->GetMapId());
                 transport->AddPassenger(this);
+                m_movementInfo.SetTransportData(transportGuid, fields[26].GetFloat(), fields[27].GetFloat(), fields[28].GetFloat(), fields[29].GetFloat(), 0, -1);
+            }
+
+            if (!MaNGOS::IsValidMapCoord(
+                GetPositionX() + m_movementInfo.GetTransportPos()->x, GetPositionY() + m_movementInfo.GetTransportPos()->y,
+                GetPositionZ() + m_movementInfo.GetTransportPos()->z, GetOrientation() + m_movementInfo.GetTransportPos()->o) ||
+                // transport size limited
+                m_movementInfo.GetTransportPos()->x > 50 || m_movementInfo.GetTransportPos()->y > 50 || m_movementInfo.GetTransportPos()->z > 50)
+            {
+                sLog.outError("%s have invalid transport coordinates (X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",
+                    guid.GetString().c_str(), GetPositionX() + m_movementInfo.GetTransportPos()->x, GetPositionY() + m_movementInfo.GetTransportPos()->y,
+                    GetPositionZ() + m_movementInfo.GetTransportPos()->z, GetOrientation() + m_movementInfo.GetTransportPos()->o);
+
+                transport->RemovePassenger(this);
             }
         }
 
-        if (!GetTransport())
+        if (!IsOnTransport())
         {
             sLog.outError("%s have problems with transport guid (%u). Teleport to default race/class locations.",
                 guid.GetString().c_str(), transGUID);
 
             RelocateToHomebind();
-
             m_movementInfo.ClearTransportData();
-
             transGUID = 0;
         }
     }
@@ -21897,7 +21887,7 @@ void Player::UpdateUnderwaterState(Map* m, float x, float y, float z)
     }
 
     // Allow travel in dark water on taxi or transport
-    if ((liquid_status.type_flags & MAP_LIQUID_TYPE_DARK_WATER) && !IsTaxiFlying() && !GetTransport())
+    if ((liquid_status.type_flags & MAP_LIQUID_TYPE_DARK_WATER) && !IsTaxiFlying() && !IsOnTransport())
         m_MirrorTimerFlags |= UNDERWATER_INDARKWATER;
     else
         m_MirrorTimerFlags &= ~UNDERWATER_INDARKWATER;

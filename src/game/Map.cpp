@@ -1088,7 +1088,9 @@ void Map::SendInitSelf( Player * player )
     UpdateData data;
 
     // attach to player data current transport data
-    if(Transport* transport = player->GetTransport())
+    Transport* transport = player->GetTransport();
+
+    if(transport)
     {
         transport->BuildCreateUpdateBlockForPlayer(&data, player);
     }
@@ -1097,7 +1099,7 @@ void Map::SendInitSelf( Player * player )
     player->BuildCreateUpdateBlockForPlayer(&data, player);
 
     // build other passengers at transport also (they always visible and marked as visible and will not send at visibility update at add to map
-    if (Transport* transport = player->GetTransport())
+    if (transport)
     {
         for (PassengerMap::const_iterator itr = transport->GetTransportKit()->GetPassengers()->begin(); itr != transport->GetTransportKit()->GetPassengers()->end(); ++itr)
         {

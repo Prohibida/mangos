@@ -313,9 +313,9 @@ void Object::BuildMovementUpdate(ByteBuffer * data, uint16 updateFlags) const
     // 0x20
     if (updateFlags & UPDATEFLAG_LIVING)
     {
-        Unit *unit = ((Unit*)this);
+        Unit* unit = ((Unit*)this);
 
-        if (unit->GetTransport() || unit->GetVehicle())
+        if (unit->IsOnTransport() || unit->GetVehicle())
             unit->m_movementInfo.AddMovementFlag(MOVEFLAG_ONTRANSPORT);
         else
             unit->m_movementInfo.RemoveMovementFlag(MOVEFLAG_ONTRANSPORT);

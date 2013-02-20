@@ -134,7 +134,7 @@ void WorldSession::HandleEnterPlayerVehicle(WorldPacket &recv_data)
     if (!GetPlayer()->IsWithinDistInMap(player, INTERACTION_DISTANCE))
         return;
 
-    if (player->GetTransport())
+    if (player->IsOnTransport())
         return;
 
     GetPlayer()->CastSpell(player, SPELL_RIDE_VEHICLE_HARDCODED, true);
