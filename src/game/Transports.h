@@ -55,6 +55,8 @@ class MANGOS_DLL_SPEC Transport : public GameObject
         void BuildStartMovePacket(Map const *targetMap);
         void BuildStopMovePacket(Map const *targetMap);
 
+        uint32 GetTransportMapId() const { return GetGOInfo() ? GetGOInfo()->moTransport.mapID : 0; };
+
     private:
         struct WayPoint
         {

@@ -288,8 +288,6 @@ Unit::Unit() :
     m_isCreatureLinkingTrigger = false;
     m_isSpawningLinked = false;
 
-    m_transport = NULL;
-
     m_pVehicleKit = VehicleKitPtr(NULL);
     m_pVehicle    = VehicleKitPtr(NULL);
 
@@ -13385,8 +13383,6 @@ void Unit::_EnterVehicle(VehicleKitPtr vehicle, int8 seatId)
     {
         if (GetTypeId() == TYPEID_PLAYER)
             pTransport->RemovePassenger((Player*)this);
-
-        SetTransport(NULL);
     }
 }
 

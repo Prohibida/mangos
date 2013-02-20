@@ -78,14 +78,7 @@ void MapManager::LoadTransports()
             continue;
         }
 
-        // setting mapID's, binded to transport GO
-        if (goinfo->moTransport.mapID)
-        {
-            m_mapOnTransportGO.insert(std::make_pair(goinfo->moTransport.mapID,t));
-            DEBUG_LOG("Loading transport %u between %s, %s map id %u", entry, name.c_str(), goinfo->name, goinfo->moTransport.mapID);
-        }
-
-        // sLog.outString("Loading transport %d between %s, %s", entry, name.c_str(), goinfo->name);
+        DEBUG_LOG("Loading transport %u between %s, %s transport map id %u", entry, name.c_str(), goinfo->name, goinfo->moTransport.mapID);
 
         std::set<uint32> mapsUsed;
 
@@ -118,9 +111,6 @@ void MapManager::LoadTransports()
 
         m_Transports.insert(t);
 
-        for (std::set<uint32>::const_iterator i = mapsUsed.begin(); i != mapsUsed.end(); ++i)
-            m_TransportsByMap[*i].insert(t);
-
         //If we someday decide to use the grid to track transports, here:
         Map* map = sMapMgr.CreateMap(mapid, t);
         t->SetMap(map);
@@ -135,7 +125,6 @@ void MapManager::LoadTransports()
 
     sLog.outString();
     sLog.outString( ">> Loaded %u transports", count );
-    sLog.outString( ">> Loaded " SIZEFMTD " transports with mapID's", m_mapOnTransportGO.size() );
 
     // check transport data DB integrity
     result = WorldDatabase.Query("SELECT gameobject.guid,gameobject.id,transports.name FROM gameobject,transports WHERE gameobject.id = transports.entry");
@@ -158,29 +147,38 @@ void MapManager::LoadTransports()
 
 bool MapManager::IsTransportMap(uint32 mapid) const
 {
-    TransportGOMap::const_iterator itr = m_mapOnTransportGO.find(mapid);
-    if (itr != m_mapOnTransportGO.end())
-        return true;
-    return false;
+    MapEntry const* mapEntry = sMapStore.LookupEntry(mapid);
+    return mapEntry ? mapEntry->IsTransport() : false;
 }
 
-Transport* MapManager::GetTransportByGOMapId(uint32 mapid) const
+Transport const* MapManager::GetTransportByGOMapId(uint32 mapid) const
 {
-    TransportGOMap::const_iterator itr = m_mapOnTransportGO.find(mapid);
-    if (itr != m_mapOnTransportGO.end())
-        return itr->second;
+    for (TransportSet::const_iterator iter = m_Transports.begin(); iter != m_Transports.end(); ++iter)
+    {
+        Transport const* transport = *iter;
+
+        if (!transport)
+            continue;
+
+        if (transport->GetGOInfo()->moTransport.mapID == mapid)
+            return transport;
+    }
     return NULL;
 }
 
-uint32 MapManager::GetTransportMapIdByTransportGuid(ObjectGuid const& guid) const
+Transport* MapManager::GetTransportByGuid(ObjectGuid const& guid)
 {
-    for(TransportGOMap::const_iterator itr = m_mapOnTransportGO.begin(); itr != m_mapOnTransportGO.end(); ++itr)
+    for (TransportSet::iterator iter = m_Transports.begin(); iter != m_Transports.end(); ++iter)
     {
-        if (itr->second && itr->second->GetObjectGuid() == guid)
-            return itr->first;
+        Transport* transport = *iter;
+
+        if (!transport)
+            continue;
+
+        if (transport->GetObjectGuid() == guid)
+            return transport;
     }
-    // Else return regular map!
-    return 0;
+    return NULL;
 }
 
 Transport::Transport() : GameObject(), m_transportKit(NULL)
@@ -847,7 +845,7 @@ void TransportKit::NotifyMapChangeBegin(WorldLocation const& oldloc, WorldLocati
                     if (plr->GetSession() && oldloc.GetMapId() != loc.GetMapId())
                     {
                         WorldPacket data(SMSG_NEW_WORLD, 4);
-                        data << uint32(sMapMgr.GetTransportMapIdByTransportGuid(GetBase()->GetObjectGuid()));
+                        data << uint32(GetBase()->GetTransportMapId());
                         plr->GetSession()->SendPacket(&data);
                     }
                     plr->TeleportTo(loc, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NODELAY);

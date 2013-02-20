@@ -619,8 +619,8 @@ Player::~Player ()
 
     delete PlayerTalkClass;
 
-    if (m_transport)
-        m_transport->RemovePassenger(this);
+    if (Transport* transport = GetTransport())
+        transport->RemovePassenger(this);
 
     for (size_t x = 0; x < ItemSetEff.size(); x++)
         if (ItemSetEff[x])
@@ -1742,7 +1742,7 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
         {
             if (!CheckTransferPossibility(loc.GetMapId()))
             {
-                if (GetTransport())
+                if (IsOnTransport())
                     TeleportToHomebind();
 
                 DEBUG_LOG("Player::TeleportTo %s is NOT teleported to map %u (requirements check failed)", GetName(), loc.GetMapId());
@@ -1787,10 +1787,9 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
         grp->SetPlayerMap(GetObjectGuid(), loc.GetMapId());
 
     // if we were on a transport, leave
-    if (!(options & TELE_TO_NOT_LEAVE_TRANSPORT) && m_transport)
+    if (!(options & TELE_TO_NOT_LEAVE_TRANSPORT) && GetTransport())
     {
-        m_transport->RemovePassenger(this);
-        SetTransport(NULL);
+        GetTransport()->RemovePassenger(this);
         m_movementInfo.ClearTransportData();
     }
 
@@ -1810,7 +1809,7 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
     m_movementInfo.SetMovementFlags(MOVEFLAG_NONE);
     DisableSpline();
 
-    if (GetMap() && GetMapId() == loc.GetMapId() && !m_transport)
+    if (GetMap() && GetMapId() == loc.GetMapId() && !GetTransport())
     {
         //lets reset far teleport flag if it wasn't reset during chained teleports
         SetSemaphoreTeleportFar(false);
@@ -1969,9 +1968,9 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
                 // send transfer packet to display load screen
                 WorldPacket data(SMSG_TRANSFER_PENDING, (4+4+4));
                 data << uint32(loc.GetMapId());
-                if (m_transport)
+                if (IsOnTransport())
                 {
-                    data << uint32(m_transport->GetEntry());
+                    data << uint32(GetTransport()->GetEntry());
                     data << uint32(GetMapId());
                 }
                 GetSession()->SendPacket(&data);
@@ -2009,7 +2008,7 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
                 // transfer finished, inform client to start load
                 WorldPacket data(SMSG_NEW_WORLD, (20));
                 data << uint32(loc.GetMapId());
-                if (m_transport)
+                if (IsOnTransport())
                 {
                     data << float(m_movementInfo.GetTransportPos()->x);
                     data << float(m_movementInfo.GetTransportPos()->y);
@@ -15926,9 +15925,11 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
         }
     }
 
+    ObjectGuid transportGuid;
     if (transGUID != 0)
     {
-        m_movementInfo.SetTransportData(ObjectGuid(HIGHGUID_MO_TRANSPORT,transGUID), fields[26].GetFloat(), fields[27].GetFloat(), fields[28].GetFloat(), fields[29].GetFloat(), 0, -1);
+        transportGuid = ObjectGuid(HIGHGUID_MO_TRANSPORT,transGUID);
+        m_movementInfo.SetTransportData(transportGuid, fields[26].GetFloat(), fields[27].GetFloat(), fields[28].GetFloat(), fields[29].GetFloat(), 0, -1);
 
         if (!MaNGOS::IsValidMapCoord(
             GetPositionX() + m_movementInfo.GetTransportPos()->x, GetPositionY() + m_movementInfo.GetTransportPos()->y,
@@ -15950,28 +15951,24 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
 
     if (transGUID != 0)
     {
-        for (MapManager::TransportSet::const_iterator iter = sMapMgr.m_Transports.begin(); iter != sMapMgr.m_Transports.end(); ++iter)
+
+        Transport* transport = sMapMgr.GetTransportByGuid(transportGuid);
+        if (transport)
         {
-            Transport* transport = *iter;
-
-            if (transport->GetGUIDLow() == transGUID)
+            MapEntry const* transMapEntry = sMapStore.LookupEntry(transport->GetMapId());
+            // client without expansion support
+            if (GetSession()->Expansion() < transMapEntry->Expansion())
             {
-                MapEntry const* transMapEntry = sMapStore.LookupEntry(transport->GetMapId());
-                // client without expansion support
-                if (GetSession()->Expansion() < transMapEntry->Expansion())
-                {
-                    DEBUG_LOG("Player %s using client without required expansion tried login at transport at non accessible map %u", GetName(), transport->GetMapId());
-                    break;
-                }
-
-                SetTransport(transport);
-                transport->AddPassenger(this);
+                DEBUG_LOG("Player %s using client without required expansion tried login at transport at non accessible map %u", GetName(), transport->GetMapId());
+            }
+            else
+            {
                 SetLocationMapId(transport->GetMapId());
-                break;
+                transport->AddPassenger(this);
             }
         }
 
-        if (!m_transport)
+        if (!GetTransport())
         {
             sLog.outError("%s have problems with transport guid (%u). Teleport to default race/class locations.",
                 guid.GetString().c_str(), transGUID);
@@ -17732,8 +17729,8 @@ void Player::SaveToDB()
     uberInsert.addFloat(finiteAlways(m_movementInfo.GetTransportPos()->y));
     uberInsert.addFloat(finiteAlways(m_movementInfo.GetTransportPos()->z));
     uberInsert.addFloat(finiteAlways(m_movementInfo.GetTransportPos()->o));
-    if (m_transport)
-        uberInsert.addUInt32(m_transport->GetGUIDLow());
+    if (IsOnTransport())
+        uberInsert.addUInt32(GetTransport()->GetGUIDLow());
     else
         uberInsert.addUInt32(0);
 

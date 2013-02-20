@@ -2181,9 +2181,6 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         MovementInfo m_movementInfo;
 
         // Transports
-        Transport* GetTransport() const { return m_transport; }
-        void SetTransport(Transport* pTransport) { m_transport = pTransport; }
-
         float GetTransOffsetX() const { return m_movementInfo.GetTransportPos()->x; }
         float GetTransOffsetY() const { return m_movementInfo.GetTransportPos()->y; }
         float GetTransOffsetZ() const { return m_movementInfo.GetTransportPos()->z; }
@@ -2281,9 +2278,6 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         // Frozen Mod
         bool m_spoofSamePlayerFaction : 1;
         // Frozen Mod
-
-        // Transports
-        Transport* m_transport;
 
         VehicleKitPtr m_pVehicleKit;
         VehicleKitPtr m_pVehicle;

@@ -1114,50 +1114,56 @@ void Map::SendInitSelf( Player * player )
     player->GetSession()->SendPacket(&packet);
 }
 
-void Map::SendInitTransports( Player * player )
+void Map::SendInitTransports(Player* player)
 {
     // Hack to send out transports
-    MapManager::TransportMap& tmap = sMapMgr.m_TransportsByMap;
-
-    // no transports at map
-    if (tmap.find(player->GetMapId()) == tmap.end())
+    // FIXME Need remove this cyle after finish transport rewrite
+    if (!player)
         return;
-
     UpdateData transData;
-
-    MapManager::TransportSet& tset = tmap[player->GetMapId()];
-
-    for (MapManager::TransportSet::const_iterator i = tset.begin(); i != tset.end(); ++i)
+    ReadGuard Guard(GetLock(MAP_LOCK_TYPE_DEFAULT));
+    bool hasAny = false;
+    for (MapStoredObjectTypesContainer::const_iterator itr = GetObjectsStore().begin(); itr != GetObjectsStore().end(); ++itr)
     {
+        if (!itr->first.IsMOTransport())
+            continue;
+
         // send data for current transport in other place
-        if((*i) != player->GetTransport() && (*i)->GetMapId()==i_id)
-        {
-            (*i)->BuildCreateUpdateBlockForPlayer(&transData, player);
-        }
+        if (itr->first != player->m_movementInfo.GetTransportGuid())
+            itr->second->BuildCreateUpdateBlockForPlayer(&transData, player);
+        hasAny = true;
     }
+
+    if (!hasAny)
+        return;
 
     WorldPacket packet;
     transData.BuildPacket(&packet);
     player->GetSession()->SendPacket(&packet);
 }
 
-void Map::SendRemoveTransports( Player * player )
+void Map::SendRemoveTransports(Player* player)
 {
     // Hack to send out transports
-    MapManager::TransportMap& tmap = sMapMgr.m_TransportsByMap;
-
-    // no transports at map
-    if (tmap.find(player->GetMapId()) == tmap.end())
+    // FIXME Need remove this cyle after finish transport rewrite
+    if (!player)
         return;
-
     UpdateData transData;
+    ReadGuard Guard(GetLock(MAP_LOCK_TYPE_DEFAULT));
+    bool hasAny = false;
+    for (MapStoredObjectTypesContainer::const_iterator itr = GetObjectsStore().begin(); itr != GetObjectsStore().end(); ++itr)
+    {
+        if (!itr->first.IsMOTransport())
+            continue;
 
-    MapManager::TransportSet& tset = tmap[player->GetMapId()];
+        // send data for current transport in other place
+        if (itr->first != player->m_movementInfo.GetTransportGuid())
+            itr->second->BuildOutOfRangeUpdateBlock(&transData);
+        hasAny = true;
+    }
 
-    // except used transport
-    for (MapManager::TransportSet::const_iterator i = tset.begin(); i != tset.end(); ++i)
-        if((*i) != player->GetTransport() && (*i)->GetMapId()!=i_id)
-            (*i)->BuildOutOfRangeUpdateBlock(&transData);
+    if (!hasAny)
+        return;
 
     WorldPacket packet;
     transData.BuildPacket(&packet);

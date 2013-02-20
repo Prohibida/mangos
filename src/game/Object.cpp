@@ -2312,3 +2312,13 @@ void WorldObject::UpdateEvents(uint32 update_diff, uint32 time)
 
     GetEvents()->Update(update_diff);
 }
+
+Transport* WorldObject::GetTransport() const
+{
+    return IsOnTransport() ? sMapMgr.GetTransportByGuid(GetTransportInfo()->GetTransportGuid()) : NULL;
+}
+
+bool WorldObject::IsOnTransport() const
+{
+    return GetTransportInfo() && GetTransportInfo()->GetTransportGuid().IsMOTransport();
+}

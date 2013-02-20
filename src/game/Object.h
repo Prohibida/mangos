@@ -477,7 +477,8 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         void GetPosition(float &x, float &y, float &z ) const { x = m_position.x; y = m_position.y; z = m_position.z; }
         WorldLocation const& GetPosition() const { return m_position; };
 
-        virtual Transport* GetTransport() const { return NULL; }
+        virtual bool IsOnTransport() const;
+        virtual Transport* GetTransport() const;
         virtual float GetTransOffsetX() const { return 0.0f; }
         virtual float GetTransOffsetY() const { return 0.0f; }
         virtual float GetTransOffsetZ() const { return 0.0f; }

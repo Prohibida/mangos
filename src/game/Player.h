@@ -2637,9 +2637,6 @@ class MANGOS_DLL_SPEC Player : public Unit
         RestType rest_type;
         ////////////////////Rest System/////////////////////
 
-        // Transports
-//        Transport * m_transport;
-
         AntiCheat* m_anticheat;
 
         uint32 m_resetTalentsCost;

@@ -565,25 +565,17 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
                 GetPlayer()->GetAntiCheat()->DoAntiCheatCheck(CHECK_TRANSPORT,movementInfo);
 
                 // elevators also cause the client to send MOVEFLAG_ONTRANSPORT - just unmount if the guid can be found in the transport list
-                for (MapManager::TransportSet::const_iterator iter = sMapMgr.m_Transports.begin(); iter != sMapMgr.m_Transports.end(); ++iter)
+                if (Transport* transport = sMapMgr.GetTransportByGuid(movementInfo.GetTransportGuid()))
                 {
-                    if ((*iter)->GetObjectGuid() == movementInfo.GetTransportGuid())
-                    {
-                        plMover->m_transport = (*iter);
-                        (*iter)->AddPassenger(plMover);
-
-                        if (plMover->GetVehicleKit())
-                            plMover->GetVehicleKit()->RemoveAllPassengers();
-
-                        break;
-                    }
+                    if (plMover->GetVehicleKit())
+                        plMover->GetVehicleKit()->RemoveAllPassengers();
+                    transport->AddPassenger(plMover);
                 }
             }
         }
         else if (plMover->GetTransport())               // if we were on a transport, leave
         {
             plMover->GetTransport()->RemovePassenger(plMover);
-            plMover->SetTransport(NULL);
             movementInfo.ClearTransportData();
         }
 
