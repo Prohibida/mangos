@@ -115,7 +115,7 @@ void MapManager::LoadTransports()
         Map* map = sMapMgr.CreateMap(mapid, t);
         t->SetMap(map);
 
-        map->InsertObject(t);
+        map->Add((GameObject*)t);
 
         t->Start();
 
@@ -503,7 +503,6 @@ bool Transport::RemovePassenger(WorldObject* passenger)
 
 void Transport::Update(uint32 update_diff, uint32 p_time)
 {
-
     UpdateSplineMovement(p_time);
 
     if (!movespline->Finalized())
@@ -584,7 +583,7 @@ void Transport::UpdateForMap(Map const* targetMap)
     if (pl.isEmpty())
         return;
 
-    if (GetMapId()==targetMap->GetId())
+    if (GetMapId() == targetMap->GetId())
     {
         for(Map::PlayerList::const_iterator itr = pl.begin(); itr != pl.end(); ++itr)
         {
@@ -723,9 +722,18 @@ bool Transport::SetPosition(WorldLocation const& loc, bool teleport)
             GetTransportKit()->NotifyMapChangeBegin(GetPosition(), loc);
 
             UpdateForMap(oldMap);
-            oldMap->EraseObject(this);
+
+            // Transport removed from current map ActiveObjects list
+            if (isActiveObject())
+                SetActiveObjectState(false);
+
+            oldMap->Remove((GameObject*)this, false);
             SetMap(newMap);
-            newMap->InsertObject(this);
+            newMap->Add((GameObject*)this);
+
+            // Transport inserted in current map ActiveObjects list
+            if (!isActiveObject())
+                SetActiveObjectState(true);
 
             GetMap()->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
             UpdateForMap(newMap);

@@ -171,6 +171,21 @@ void Map::AddToGrid(Creature* obj, NGridType *grid, Cell const& cell)
     }
 }
 
+template<>
+void Map::AddToGrid(GameObject* obj, NGridType *grid, Cell const& cell)
+{
+    // add to world object registry in grid
+    if (obj->GetObjectGuid().IsMOTransport())
+    {
+        (*grid)(cell.CellX(), cell.CellY()).AddWorldObject<GameObject>(obj);
+    }
+    // add to grid object store
+    else
+    {
+        (*grid)(cell.CellX(), cell.CellY()).AddGridObject<GameObject>(obj);
+    }
+}
+
 template<class T>
 void Map::RemoveFromGrid(T* obj, NGridType *grid, Cell const& cell)
 {
@@ -210,6 +225,21 @@ void Map::RemoveFromGrid(Creature* obj, NGridType *grid, Cell const& cell)
     else
     {
         (*grid)(cell.CellX(), cell.CellY()).RemoveGridObject<Creature>(obj);
+    }
+}
+
+template<>
+void Map::RemoveFromGrid(GameObject* obj, NGridType *grid, Cell const& cell)
+{
+    // remove from world object registry in grid
+    if (obj->GetObjectGuid().IsMOTransport())
+    {
+        (*grid)(cell.CellX(), cell.CellY()).RemoveWorldObject<GameObject>(obj);
+    }
+    // remove from grid object store
+    else
+    {
+        (*grid)(cell.CellX(), cell.CellY()).RemoveGridObject<GameObject>(obj);
     }
 }
 
@@ -353,7 +383,7 @@ bool Map::Add(Player *player)
     player->AddToWorld();
 
     SendInitSelf(player);
-    SendInitTransports(player);
+    SendInitActiveObjects(player);
 
     NGridType* grid = getNGrid(cell.GridX(), cell.GridY());
     player->GetViewPoint().Event_AddedToWorld(&(*grid)(cell.CellX(), cell.CellY()));
@@ -618,12 +648,12 @@ void Map::Update(const uint32 &t_diff)
             if (!obj->IsInWorld() || !obj->IsPositionValid())
                 continue;
 
-            // Update active MO_TRANSPORT objects (if not updated in other objects chain)
-            //if (obj->GetObjectGuid().IsMOTransport())
-            //{
-            //    WorldObject::UpdateHelper helper(obj);
-            //    helper.Update(t_diff);
-            //}
+            // FIXME - temphack for update active MO_TRANSPORT objects
+            if (obj->GetObjectGuid().IsMOTransport())
+            {
+                WorldObject::UpdateHelper helper(obj);
+                helper.Update(t_diff);
+            }
 
             //lets update mobs/objects in ALL visible cells around player!
             CellArea area = Cell::CalculateCellArea(obj->GetPositionX(), obj->GetPositionY(), GetVisibilityDistance());
@@ -721,8 +751,7 @@ void Map::Remove(Player* player, bool remove)
     DEBUG_FILTER_LOG(LOG_FILTER_PLAYER_MOVES, "Map::Remove() Remove player %s from grid[%u,%u]", player->GetName(), cell.GridX(), cell.GridY());
 
     RemoveFromGrid(player,grid,cell);
-
-    SendRemoveTransports(player);
+    SendRemoveActiveObjects(player);
     UpdateObjectVisibility(player,cell,p);
 
     if (!player->GetPlayerbotAI())
@@ -1081,26 +1110,19 @@ void Map::UpdateObjectVisibility( WorldObject* obj, Cell cell, CellPair cellpair
     cell.Visit(cellpair, player_notifier, *this, *obj, GetVisibilityDistance(obj));
 }
 
-void Map::SendInitSelf( Player * player )
+void Map::SendInitSelf(Player * player )
 {
     DETAIL_LOG("Creating player data for himself %u", player->GetGUIDLow());
 
     UpdateData data;
-
-    // attach to player data current transport data
-    Transport* transport = player->GetTransport();
-
-    if(transport)
-    {
-        transport->BuildCreateUpdateBlockForPlayer(&data, player);
-    }
-
     // build data for self presence in world at own client (one time for map)
     player->BuildCreateUpdateBlockForPlayer(&data, player);
 
     // build other passengers at transport also (they always visible and marked as visible and will not send at visibility update at add to map
-    if (transport)
+    if (Transport* transport = player->GetTransport())
     {
+        // attach to player data current transport data
+        transport->BuildCreateUpdateBlockForPlayer(&data, player);
         for (PassengerMap::const_iterator itr = transport->GetTransportKit()->GetPassengers()->begin(); itr != transport->GetTransportKit()->GetPassengers()->end(); ++itr)
         {
             WorldObject* obj = itr->first;
@@ -1116,59 +1138,59 @@ void Map::SendInitSelf( Player * player )
     player->GetSession()->SendPacket(&packet);
 }
 
-void Map::SendInitTransports(Player* player)
+void Map::SendInitActiveObjects(Player* player)
 {
-    // Hack to send out transports
-    // FIXME Need remove this cyle after finish transport rewrite
     if (!player)
         return;
-    UpdateData transData;
-    ReadGuard Guard(GetLock(MAP_LOCK_TYPE_DEFAULT));
+    ActiveNonPlayers const& activeObjects = GetActiveObjects();
+    if (activeObjects.empty())
+        return;
+
+    UpdateData initData;
     bool hasAny = false;
-    for (MapStoredObjectTypesContainer::const_iterator itr = GetObjectsStore().begin(); itr != GetObjectsStore().end(); ++itr)
+
+    for (ActiveNonPlayers::const_iterator itr = m_activeNonPlayers.begin(); itr != m_activeNonPlayers.end(); ++itr)
     {
-        if (!itr->first.IsMOTransport())
+        WorldObject const* object = *itr;
+        if (!object || !object->IsInWorld() || !object->isVisibleForInState(player,player,false))
             continue;
 
-        // send data for current transport in other place
-        if (itr->first != player->m_movementInfo.GetTransportGuid())
-            itr->second->BuildCreateUpdateBlockForPlayer(&transData, player);
+        object->BuildCreateUpdateBlockForPlayer(&initData, player);
         hasAny = true;
     }
-
     if (!hasAny)
         return;
 
     WorldPacket packet;
-    transData.BuildPacket(&packet);
+    initData.BuildPacket(&packet);
     player->GetSession()->SendPacket(&packet);
 }
 
-void Map::SendRemoveTransports(Player* player)
+void Map::SendRemoveActiveObjects(Player* player)
 {
-    // Hack to send out transports
-    // FIXME Need remove this cyle after finish transport rewrite
     if (!player)
         return;
-    UpdateData transData;
-    ReadGuard Guard(GetLock(MAP_LOCK_TYPE_DEFAULT));
+    ActiveNonPlayers const& activeObjects = GetActiveObjects();
+    if (activeObjects.empty())
+        return;
+
+    UpdateData initData;
     bool hasAny = false;
-    for (MapStoredObjectTypesContainer::const_iterator itr = GetObjectsStore().begin(); itr != GetObjectsStore().end(); ++itr)
+
+    for (ActiveNonPlayers::const_iterator itr = m_activeNonPlayers.begin(); itr != m_activeNonPlayers.end(); ++itr)
     {
-        if (!itr->first.IsMOTransport())
+        WorldObject const* object = *itr;
+        if (!object || !object->IsInWorld())
             continue;
 
-        // send data for current transport in other place
-        if (itr->first != player->m_movementInfo.GetTransportGuid())
-            itr->second->BuildOutOfRangeUpdateBlock(&transData);
+        object->BuildOutOfRangeUpdateBlock(&initData);
         hasAny = true;
     }
-
     if (!hasAny)
         return;
 
     WorldPacket packet;
-    transData.BuildPacket(&packet);
+    initData.BuildPacket(&packet);
     player->GetSession()->SendPacket(&packet);
 }
 
@@ -2505,7 +2527,7 @@ void Map::ForcedUnload()
 
 float Map::GetVisibilityDistance(WorldObject* obj) const 
 {
-    if (obj && obj->GetObjectGuid().IsGameObject())
+    if (obj && obj->GetTypeId() == TYPEID_GAMEOBJECT)
         return (m_VisibleDistance + ((GameObject*)obj)->GetDeterminativeSize());
     else
         return m_VisibleDistance; 

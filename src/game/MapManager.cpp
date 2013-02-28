@@ -223,12 +223,6 @@ void MapManager::Update(uint32 diff)
         m_threadsCount = m_threadsCountPreferred;
     }
 
-    for (TransportSet::iterator iter = m_Transports.begin(); iter != m_Transports.end(); ++iter)
-    {
-        WorldObject::UpdateHelper helper((*iter));
-        helper.Update((uint32)i_timer.GetCurrent());
-    }
-
     //remove all maps which can be unloaded
     MapMapType::iterator iter = i_maps.begin();
     while(iter != i_maps.end())

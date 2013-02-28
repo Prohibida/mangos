@@ -263,10 +263,13 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         bool ScriptsStart(ScriptMapMapName const& scripts, uint32 id, Object* source, Object* target, ScriptExecutionParam execParams = SCRIPT_EXEC_PARAM_NONE);
         void ScriptCommandStart(ScriptInfo const& script, uint32 delay, Object* source, Object* target);
 
+        typedef UNORDERED_SET<WorldObject*> ActiveNonPlayers;
         // must called with AddToWorld
         void AddToActive(WorldObject* obj);
         // must called with RemoveFromWorld
         void RemoveFromActive(WorldObject* obj);
+        ActiveNonPlayers const& GetActiveObjects() { return m_activeNonPlayers; };
+
 
         Player* GetPlayer(ObjectGuid guid, bool globalSearch = false);
         Creature* GetCreature(ObjectGuid guid);
@@ -360,8 +363,8 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
 
         void SendInitSelf( Player * player );
 
-        void SendInitTransports(Player* player);
-        void SendRemoveTransports(Player* player);
+        void SendInitActiveObjects(Player* player);
+        void SendRemoveActiveObjects(Player* player);
 
         bool CreatureCellRelocation(Creature* creature, Cell new_cell);
 
@@ -410,7 +413,6 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         MapRefManager m_mapRefManager;
         MapRefManager::iterator m_mapRefIter;
 
-        typedef UNORDERED_SET<WorldObject*> ActiveNonPlayers;
         ActiveNonPlayers m_activeNonPlayers;
         ActiveNonPlayers::iterator m_activeNonPlayersIter;
         MapStoredObjectTypesContainer m_objectsStore;

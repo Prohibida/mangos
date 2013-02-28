@@ -120,6 +120,7 @@ namespace MaNGOS
         void Visit(CorpseMapType&) {}
         void Visit(CameraMapType&) {}
         void Visit(CreatureMapType&);
+        void Visit(GameObjectMapType&);
     };
 
     struct MANGOS_DLL_DECL PlayerRelocationNotifier

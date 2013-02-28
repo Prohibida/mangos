@@ -41,27 +41,6 @@ void VisibleNotifier::Notify()
 {
     Player& player = *i_camera.GetOwner();
     // at this moment i_clientGUIDs have guids that not iterate at grid level checks
-    // but exist one case when this possible and object not out of range: transports
-    if (Transport* transport = player.GetTransport())
-    {
-        for (PassengerMap::const_iterator itr = transport->GetTransportKit()->GetPassengers()->begin(); itr != transport->GetTransportKit()->GetPassengers()->end(); ++itr)
-        {
-            WorldObject* obj = itr->first;
-            if (!obj || !obj->IsInWorld())
-                continue;
-
-            if (i_clientGUIDs.find(obj->GetObjectGuid()) != i_clientGUIDs.end())
-            {
-                // ignore far sight case
-                if (obj->GetTypeId() == TYPEID_PLAYER)
-                {
-                    ((Player*)obj)->UpdateVisibilityOf(obj, &player);
-                    player.UpdateVisibilityOf(&player, ((Player*)obj), i_data, i_visibleNow);
-                }
-                i_clientGUIDs.erase(obj->GetObjectGuid());
-            }
-        }
-    }
 
     // generate outOfRange for not iterate objects
     i_data.AddOutOfRangeGUID(i_clientGUIDs);
@@ -306,5 +285,4 @@ bool MaNGOS::AnyAssistCreatureInRangeCheck::operator()(Creature* u)
     return true;
 }
 
-template void ObjectUpdater::Visit<GameObject>(GameObjectMapType&);
 template void ObjectUpdater::Visit<DynamicObject>(DynamicObjectMapType&);
