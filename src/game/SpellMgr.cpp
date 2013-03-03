@@ -2585,7 +2585,9 @@ uint32 SpellMgr::GetSpellMaxTargetsWithCustom(SpellEntry const* spellInfo, Unit 
                 case 47669:                                 // Wakeup Subboss (Utgarde Pinnacle)
                 case 48278:                                 // Paralyze (Utgarde Pinnacle)
                 case 50988:                                 // Glare of the Tribunal (Halls of Stone)
-                case 51146:                                 // Searching Gaze (Halls Of Stone)
+                case 50742:                                 // Ooze Combine (Halls of Stone)
+                case 51003:                                 // Summon Dark Matter Target (Halls of Stone)
+                case 51146:                                 // Summon Searching Gaze (Halls Of Stone)
                 case 52438:                                 // Summon Skittering Swarmer (Azjol Nerub,  Krik'thir the Gatewatcher)
                 case 52449:                                 // Summon Skittering Infector (Azjol Nerub,  Krik'thir the Gatewatcher)
                 case 53457:                                 // Impale (Azjol Nerub,  Anub'arak)
@@ -3707,16 +3709,16 @@ void SpellMgr::LoadSpellScriptTarget()
     // Check all spells
     if (!sLog.HasLogFilter(LOG_FILTER_DB_STRICTED_CHECK))
     {
-        for (uint32 i = 1; i < sSpellStore.GetFieldCount(); ++i)
+        for (uint32 i = 1; i < sSpellStore.GetNumRows(); ++i)
         {
             SpellEntry const* spellInfo = sSpellStore.LookupEntry(i);
-            if(!spellInfo)
+            if (!spellInfo)
                 continue;
 
-            bool found = false;
             for (int j = 0; j < MAX_EFFECT_INDEX; ++j)
             {
-                if (spellInfo->EffectImplicitTargetA[j] == TARGET_SCRIPT || spellInfo->EffectImplicitTargetA[j] != TARGET_SELF && spellInfo->EffectImplicitTargetB[j] == TARGET_SCRIPT)
+                if (spellInfo->Effect[j] && (spellInfo->EffectImplicitTargetA[j] == TARGET_SCRIPT ||
+                                             (spellInfo->EffectImplicitTargetA[j] != TARGET_SELF && spellInfo->EffectImplicitTargetB[j] == TARGET_SCRIPT)))
                 {
                     SQLMultiStorage::SQLMSIteratorBounds<SpellTargetEntry> bounds = sSpellScriptTargetStorage.getBounds<SpellTargetEntry>(i);
                     if (bounds.first == bounds.second)
