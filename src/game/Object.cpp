@@ -2106,7 +2106,7 @@ struct WorldObjectChangeAccumulator
         for(CameraMapType::iterator iter = m.begin(); iter != m.end(); ++iter)
         {
             Player* owner = iter->getSource()->GetOwner();
-            if (owner && owner != &i_object && owner->HaveAtClient(&i_object))
+            if (owner && owner != &i_object && owner->HaveAtClient(i_object.GetObjectGuid()))
                 i_object.BuildUpdateDataForPlayer(owner, i_updateDatas);
         }
     }

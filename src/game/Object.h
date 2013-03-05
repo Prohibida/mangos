@@ -680,6 +680,12 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         Movement::MoveSpline* movespline;
         ShortTimeTracker m_movesplineTimer;
 
+        // Visibility operations for object in (must be used only in active state!)
+        GuidSet& GetNotifiedClients() { return m_notifiedClients;};
+        void  AddNotifiedClient(ObjectGuid const& guid)    { m_notifiedClients.insert(guid); };
+        void  RemoveNotifiedClient(ObjectGuid const& guid) { m_notifiedClients.erase(guid); };
+        bool  HasNotifiedClients() const { return !m_notifiedClients.empty(); };
+
     protected:
         explicit WorldObject();
 
@@ -711,6 +717,8 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         uint32 m_LastUpdateTime;
 
         WorldObjectEventProcessor m_Events;
+
+        GuidSet    m_notifiedClients;
 };
 
 #endif

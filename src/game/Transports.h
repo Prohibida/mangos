@@ -88,7 +88,6 @@ class MANGOS_DLL_SPEC Transport : public GameObject
         WayPointMap::const_iterator GetNext()    { return m_next; }
 
     private:
-        void UpdateForMap(Map const* map);
         void DoEventIfAny(WayPointMap::value_type const& node, bool departure);
         void MoveToNextWayPoint();                          // move m_next/m_cur to next points
 

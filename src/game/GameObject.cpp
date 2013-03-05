@@ -834,7 +834,7 @@ bool GameObject::isVisibleForInState(Player const* u, WorldObject const* viewPoi
         return false;
 
     // Transport always visible at this step implementation
-    if (IsTransport() && IsInMap(u))
+    if (IsTransport() && IsInMap(u) && isActiveObject())
         return true;
 
     // quick check visibility false cases for non-GM-mode

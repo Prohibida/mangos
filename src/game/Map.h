@@ -164,6 +164,9 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         //function for setting up visibility distance for maps on per-type/per-Id basis
         virtual void InitVisibilityDistance();
 
+        // Half-hack method for use with visible-over-grid active objects (like big WB and MOTransport)
+        bool IsVisibleGlobally(ObjectGuid const& guid);
+
         template<class T> void Relocation(T* object, float x, float y, float z, float orientation);
 
         // FIXME - remove this wrapper after SD2 correct
@@ -365,6 +368,8 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
 
         void SendInitActiveObjects(Player* player);
         void SendRemoveActiveObjects(Player* player);
+
+        void SendRemoveNotifyToStoredClients(WorldObject* object, bool destroy = false);
 
         bool CreatureCellRelocation(Creature* creature, Cell new_cell);
 

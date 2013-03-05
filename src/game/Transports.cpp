@@ -90,12 +90,10 @@ void MapManager::LoadTransports()
             continue;
         }
 
-        float x, y, z, o;
-        uint32 mapid;
-        x = t->m_WayPoints[0].loc.x; y = t->m_WayPoints[0].loc.y; z = t->m_WayPoints[0].loc.z; mapid = t->m_WayPoints[0].loc.GetMapId(); o = 1.0f;
+        WorldLocation loc = t->m_WayPoints[0].loc;
 
         //current code does not support transports in dungeon!
-        const MapEntry* pMapInfo = sMapStore.LookupEntry(mapid);
+        const MapEntry* pMapInfo = sMapStore.LookupEntry(loc.GetMapId());
         if(!pMapInfo || pMapInfo->Instanceable())
         {
             delete t;
@@ -103,7 +101,7 @@ void MapManager::LoadTransports()
         }
 
         // creates the Gameobject
-        if (!t->Create(entry, mapid, x, y, z, o, GO_ANIMPROGRESS_DEFAULT, GO_DYNFLAG_LO_NONE))
+        if (!t->Create(entry, loc.GetMapId(), loc.x, loc.y, loc.z, loc.o, GO_ANIMPROGRESS_DEFAULT, GO_DYNFLAG_LO_NONE))
         {
             delete t;
             continue;
@@ -112,11 +110,10 @@ void MapManager::LoadTransports()
         m_Transports.insert(t);
 
         //If we someday decide to use the grid to track transports, here:
-        Map* map = sMapMgr.CreateMap(mapid, t);
+        Map* map = sMapMgr.CreateMap(loc.GetMapId(), t);
         t->SetMap(map);
-
+        map->Relocation((GameObject*)t, loc.x, loc.y, loc.z, loc.orientation);
         map->Add((GameObject*)t);
-
         t->Start();
 
         ++count;
@@ -577,39 +574,6 @@ void Transport::Update(uint32 update_diff, uint32 p_time)
     }
 }
 
-void Transport::UpdateForMap(Map const* targetMap)
-{
-    Map::PlayerList const& pl = targetMap->GetPlayers();
-    if (pl.isEmpty())
-        return;
-
-    if (GetMapId() == targetMap->GetId())
-    {
-        for(Map::PlayerList::const_iterator itr = pl.begin(); itr != pl.end(); ++itr)
-        {
-            if(this != itr->getSource()->GetTransport())
-            {
-                UpdateData transData;
-                BuildCreateUpdateBlockForPlayer(&transData, itr->getSource());
-                WorldPacket packet;
-                transData.BuildPacket(&packet);
-                itr->getSource()->SendDirectMessage(&packet);
-            }
-        }
-    }
-    else
-    {
-        UpdateData transData;
-        BuildOutOfRangeUpdateBlock(&transData);
-        WorldPacket out_packet;
-        transData.BuildPacket(&out_packet);
-
-        for(Map::PlayerList::const_iterator itr = pl.begin(); itr != pl.end(); ++itr)
-            if(this != itr->getSource()->GetTransport())
-                itr->getSource()->SendDirectMessage(&out_packet);
-    }
-}
-
 void Transport::DoEventIfAny(WayPointMap::value_type const& node, bool departure)
 {
     if (uint32 eventid = departure ? node.second.departureEventID : node.second.arrivalEventID)
@@ -625,14 +589,12 @@ void Transport::BuildStartMovePacket(Map const* targetMap)
 {
     SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE);
     SetGoState(GO_STATE_ACTIVE);
-    UpdateForMap(targetMap);
 }
 
 void Transport::BuildStopMovePacket(Map const* targetMap)
 {
     RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE);
     SetGoState(GO_STATE_READY);
-    UpdateForMap(targetMap);
 }
 
 uint32 Transport::GetPossibleMapByEntry(uint32 entry, bool start)
@@ -717,28 +679,18 @@ bool Transport::SetPosition(WorldLocation const& loc, bool teleport)
 
         if (oldMap != newMap)
         {
-            Relocate(loc);
-
             GetTransportKit()->NotifyMapChangeBegin(GetPosition(), loc);
-
-            UpdateForMap(oldMap);
-
-            // Transport removed from current map ActiveObjects list
-            if (isActiveObject())
-                SetActiveObjectState(false);
 
             oldMap->Remove((GameObject*)this, false);
             SetMap(newMap);
+
+            newMap->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
             newMap->Add((GameObject*)this);
 
             // Transport inserted in current map ActiveObjects list
-            if (!isActiveObject())
-                SetActiveObjectState(true);
-
-            GetMap()->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
-            UpdateForMap(newMap);
-
             GetTransportKit()->NotifyMapChangeEnd(loc);
+
+            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::SetPosition %s teleported to (%f, %f, %f, %f)", GetObjectGuid().GetString().c_str(), loc.x, loc.y, loc.z, loc.orientation);
         }
         else if (!(GetPosition() == loc))
             GetMap()->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
@@ -856,9 +808,7 @@ void TransportKit::NotifyMapChangeBegin(WorldLocation const& oldloc, WorldLocati
                         data << uint32(GetBase()->GetTransportMapId());
                         plr->GetSession()->SendPacket(&data);
                     }
-                    plr->TeleportTo(loc, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NODELAY);
-//                    plr->TeleportTo(loc, TELE_TO_NOT_LEAVE_TRANSPORT);
-
+                    plr->TeleportTo(loc, TELE_TO_NOT_LEAVE_TRANSPORT);
                     break;
                 }
                 // TODO - make corpse moving.

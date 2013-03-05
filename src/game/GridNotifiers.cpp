@@ -43,13 +43,28 @@ void VisibleNotifier::Notify()
     // at this moment i_clientGUIDs have guids that not iterate at grid level checks
 
     // generate outOfRange for not iterate objects
-    i_data.AddOutOfRangeGUID(i_clientGUIDs);
     for (GuidSet::iterator itr = i_clientGUIDs.begin(); itr != i_clientGUIDs.end(); ++itr)
     {
         ObjectGuid guid = *itr;
-        player.m_clientGUIDs.erase(guid);
-        DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "VisibleNotifier::Notify %s is out of range (no in active cells set) now for %s",
-                         guid.GetString().c_str(), player.GetGuidStr().c_str());
+        if (!player.GetMap()->IsVisibleGlobally(guid))
+        {
+            i_data.AddOutOfRangeGUID(guid);
+            player.GetClientGuids().erase(guid);
+            DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "VisibleNotifier::Notify %s is out of range (no in active cells set) now for %s",
+                          guid.GetString().c_str(), player.GetGuidStr().c_str());
+        }
+        else
+        {
+            if (WorldObject* object = player.GetMap()->GetWorldObject(guid))
+            {
+                object->AddNotifiedClient(player.GetObjectGuid());
+                DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "VisibleNotifier::Notify try make %s is out of range for %s, but his visible globally (distance %f). Need check movement trajectory.",
+                        guid.GetString().c_str(), player.GetGuidStr().c_str(), player.GetDistance(object));
+            }
+            else
+                i_data.AddOutOfRangeGUID(guid);
+            player.GetClientGuids().erase(guid);
+        }
     }
 
     if (i_data.HasData())

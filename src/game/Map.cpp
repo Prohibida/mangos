@@ -782,18 +782,22 @@ Map::Remove(T* obj, bool remove)
     NGridType *grid = getNGrid(cell.GridX(), cell.GridY());
     MANGOS_ASSERT( grid != NULL );
 
-    if (obj->isActiveObject())
-        RemoveFromActive(obj);
+    RemoveFromActive(obj);
 
     if (remove)
         obj->CleanupsBeforeDelete();
     obj->RemoveFromWorld(remove);
 
-    UpdateObjectVisibility(obj,cell,p);                     // i think will be better to call this function while object still in grid, this changes nothing but logically is better(as for me)
+    if (!obj->isActiveObject())
+        UpdateObjectVisibility(obj,cell,p);                     // i think will be better to call this function while object still in grid, this changes nothing but logically is better(as for me)
+
     RemoveFromGrid(obj,grid,cell);
 
     if (obj->GetTypeId() == TYPEID_UNIT)
         RemoveAttackersStorageFor(obj->GetObjectGuid());
+
+    if (obj->isActiveObject())
+        SendRemoveNotifyToStoredClients(obj, bool(obj->GetTypeId() == TYPEID_UNIT));
 
     if (remove)
     {
@@ -804,6 +808,10 @@ Map::Remove(T* obj, bool remove)
         obj->ResetMap();
         // Note: In case resurrectable corpse and pet its removed from global lists in own destructor
         delete obj;
+    }
+    else
+    {
+        EraseObject(obj->GetObjectGuid());
     }
 }
 
@@ -898,22 +906,23 @@ void Map::Relocation(GameObject* go, float x, float y, float z, float orientatio
         EnsureGridLoadedAtEnter(old_cell);
 
         NGridType* oldGrid = getNGrid(old_cell.GridX(), old_cell.GridY());
+
         RemoveFromGrid(go, oldGrid,old_cell);
-
         EnsureGridLoadedAtEnter(new_cell);
-
         NGridType* newGrid = getNGrid(new_cell.GridX(), new_cell.GridY());
-        go->GetViewPoint().Event_GridChanged(&(*newGrid)(new_cell.CellX(),new_cell.CellY()));
-
         if (newGrid->GetGridState() != GRID_STATE_ACTIVE)
         {
             ResetGridExpiry(*newGrid, 0.1f);
             newGrid->SetGridState(GRID_STATE_ACTIVE);
         }
+        AddToGrid(go, newGrid, new_cell);
+
+        go->GetViewPoint().Event_GridChanged(&(*newGrid)(new_cell.CellX(),new_cell.CellY()));
+        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "GO %s moved in grid[%u,%u] from cell[%u,%u] to cell[%u,%u].", go->GetObjectGuid().GetString().c_str(), old_cell.GridX(), old_cell.GridY(), old_cell.CellX(), old_cell.CellY(), new_cell.CellX(), new_cell.CellY());
     }
 
     go->UpdateObjectVisibility();
-    //go->OnRelocated();
+    // go->OnRelocated();
 };
 
 void Map::CreatureRelocation(Creature* object, float x, float y, float z, float orientation)
@@ -1111,7 +1120,7 @@ void Map::UpdateObjectVisibility( WorldObject* obj, Cell cell, CellPair cellpair
     cell.Visit(cellpair, player_notifier, *this, *obj, GetVisibilityDistance(obj));
 }
 
-void Map::SendInitSelf(Player * player )
+void Map::SendInitSelf(Player* player )
 {
     DETAIL_LOG("Creating player data for himself %u", player->GetGUIDLow());
 
@@ -1127,7 +1136,7 @@ void Map::SendInitSelf(Player * player )
         for (PassengerMap::const_iterator itr = transport->GetTransportKit()->GetPassengers()->begin(); itr != transport->GetTransportKit()->GetPassengers()->end(); ++itr)
         {
             WorldObject* obj = itr->first;
-            if (obj && obj->IsInWorld() && (player != obj) && player->HaveAtClient(obj))
+            if (obj && obj->IsInWorld() && (player != obj) && player->HaveAtClient(obj->GetObjectGuid()))
             {
                 obj->BuildCreateUpdateBlockForPlayer(&data, player);
             }
@@ -1150,14 +1159,17 @@ void Map::SendInitActiveObjects(Player* player)
     UpdateData initData;
     bool hasAny = false;
 
-    for (ActiveNonPlayers::const_iterator itr = m_activeNonPlayers.begin(); itr != m_activeNonPlayers.end(); ++itr)
+    for (ActiveNonPlayers::iterator itr = m_activeNonPlayers.begin(); itr != m_activeNonPlayers.end(); ++itr)
     {
-        WorldObject const* object = *itr;
-        if (!object || !object->IsInWorld() || !object->isVisibleForInState(player,player,false))
+        WorldObject* object = *itr;
+        if (!object || !object->IsInWorld() || !object->isVisibleForInState(player,player,false) || !object->isActiveObject())
             continue;
 
         object->BuildCreateUpdateBlockForPlayer(&initData, player);
+        object->AddNotifiedClient(player->GetObjectGuid());
         hasAny = true;
+        DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "Map::SendInitActiveObjects %s visibility initialized for %s",
+                      object->GetObjectGuid().GetString().c_str(), player->GetGuidStr().c_str());
     }
     if (!hasAny)
         return;
@@ -1178,14 +1190,17 @@ void Map::SendRemoveActiveObjects(Player* player)
     UpdateData initData;
     bool hasAny = false;
 
-    for (ActiveNonPlayers::const_iterator itr = m_activeNonPlayers.begin(); itr != m_activeNonPlayers.end(); ++itr)
+    for (ActiveNonPlayers::iterator itr = m_activeNonPlayers.begin(); itr != m_activeNonPlayers.end(); ++itr)
     {
-        WorldObject const* object = *itr;
-        if (!object || !object->IsInWorld())
+        WorldObject* object = *itr;
+        if (!object || !object->IsInWorld() || !object->isActiveObject())
             continue;
 
         object->BuildOutOfRangeUpdateBlock(&initData);
         hasAny = true;
+        object->RemoveNotifiedClient(player->GetObjectGuid());
+        DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "Map::SendRemoveActiveObjects %s visibility removed for %s",
+                      object->GetObjectGuid().GetString().c_str(), player->GetGuidStr().c_str());
     }
     if (!hasAny)
         return;
@@ -1312,7 +1327,7 @@ bool Map::ActiveObjectsNearGrid(uint32 x, uint32 y) const
     return false;
 }
 
-void Map::AddToActive( WorldObject* obj )
+void Map::AddToActive(WorldObject* obj)
 {
     m_activeNonPlayers.insert(obj);
     Cell cell = Cell(MaNGOS::ComputeCellPair(obj->GetPositionX(), obj->GetPositionY()));
@@ -1338,6 +1353,29 @@ void Map::AddToActive( WorldObject* obj )
             }
         }
     }
+
+    if (IsVisibleGlobally(obj->GetObjectGuid()))
+    {
+        PlayerList const& plist = GetPlayers();
+        if (!plist.isEmpty())
+        {
+            for (PlayerList::const_iterator itr = plist.begin(); itr != plist.end(); ++itr)
+            {
+                Player* player = itr->getSource();
+                if (player && player->IsInWorld())
+                {
+                    UpdateData data;
+                    obj->BuildCreateUpdateBlockForPlayer(&data, player);
+                    WorldPacket packet;
+                    data.BuildPacket(&packet);
+                    player->SendDirectMessage(&packet);
+                    obj->AddNotifiedClient(player->GetObjectGuid());
+                    DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "Map::AddToActive %s send visibility notify to %s",
+                        obj->GetObjectGuid().GetString().c_str(), player->GetObjectGuid().GetString().c_str());
+                }
+            }
+        }
+    }
 }
 
 void Map::RemoveFromActive( WorldObject* obj )
@@ -1346,7 +1384,7 @@ void Map::RemoveFromActive( WorldObject* obj )
     if(m_activeNonPlayersIter != m_activeNonPlayers.end())
     {
         ActiveNonPlayers::iterator itr = m_activeNonPlayers.find(obj);
-        if(itr==m_activeNonPlayersIter)
+        if(itr == m_activeNonPlayersIter)
             ++m_activeNonPlayersIter;
         m_activeNonPlayers.erase(itr);
     }
@@ -1356,7 +1394,7 @@ void Map::RemoveFromActive( WorldObject* obj )
     // also allow unloading spawn grid
     if (obj->GetTypeId()==TYPEID_UNIT)
     {
-        Creature* c= (Creature*)obj;
+        Creature* c = (Creature*)obj;
 
         if(!c->IsPet() && c->HasStaticDBSpawnData())
         {
@@ -2644,4 +2682,52 @@ void Map::UpdateEvents(uint32 update_diff)
         GetEvents()->RenewEvents();
     }
     GetEvents()->Update(update_diff);
+}
+
+bool Map::IsVisibleGlobally(ObjectGuid const& guid)
+{
+    if (guid.IsMOTransport())
+    {
+        return bool(FindObject(guid));
+    }
+    return false;
+}
+
+void Map::SendRemoveNotifyToStoredClients(WorldObject* object, bool destroy)
+{
+    if (!object || !object->HasNotifiedClients())
+        return;
+
+    WorldPacket out_packet(SMSG_DESTROY_OBJECT, 9);
+    if (destroy)
+    {
+        out_packet << object->GetObjectGuid();
+        out_packet << uint8(0);
+    }
+    else
+    // Packet type rewrited to SMSG_UPDATE_OBJECT here
+    {
+        UpdateData data;
+        object->BuildOutOfRangeUpdateBlock(&data);
+        data.BuildPacket(&out_packet);
+    }
+
+    uint32 count = 0;
+
+    for (GuidSet::const_iterator itr = object->GetNotifiedClients().begin(); itr != object->GetNotifiedClients().end(); ++itr)
+    {
+        if (Player* player = GetPlayer(*itr))
+        {
+            if (player->IsInWorld() && !player->HaveAtClient(object->GetObjectGuid()))
+            {
+                player->SendDirectMessage(&out_packet);
+                ++count;
+            }
+        }
+    }
+
+    DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "Map::SendRemoveNotifyToStoredClients %s send visibility notify to %u clients (%u really)",
+        object->GetObjectGuid().GetString().c_str(), object->GetNotifiedClients().size(), count);
+
+    object->GetNotifiedClients().clear();
 }
