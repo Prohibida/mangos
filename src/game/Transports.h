@@ -115,10 +115,7 @@ class  MANGOS_DLL_SPEC TransportKit : public TransportBase
         void RemoveAllPassengers();
 
         Transport* GetBase() const { return (Transport*)GetOwner(); }
-        PassengerMap const* GetPassengers() { return &m_passengers; };
-
-        void NotifyMapChangeBegin(WorldLocation const& oldloc, WorldLocation const& loc);
-        void NotifyMapChangeEnd(WorldLocation const& loc);
+        PassengerMap const& GetPassengers() const { return m_passengers; };
 
     private:
         // Internal use to calculate the boarding position
