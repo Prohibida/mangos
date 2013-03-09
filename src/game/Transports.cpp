@@ -679,12 +679,7 @@ bool Transport::SetPosition(WorldLocation const& loc, bool teleport)
 
         if (oldMap != newMap)
         {
-            // Transport inserted in current map ActiveObjects list
-            if (!GetTransportKit()->GetPassengers().empty())
-            {
-                DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Transport::SetPosition %s notify passengers (count %u) for change map from %u to %u",GetObjectGuid().GetString().c_str(), GetTransportKit()->GetPassengers().size(), GetPosition().GetMapId(), loc.GetMapId());
-                GetTransportKit()->CallForAllPassengers(NotifyMapChangeBegin(oldMap, GetPosition(), loc));
-            }
+            GetTransportKit()->NotifyMapChangeBegin(GetPosition(), loc);
 
             oldMap->Remove((GameObject*)this, false);
             SetMap(newMap);
@@ -693,11 +688,7 @@ bool Transport::SetPosition(WorldLocation const& loc, bool teleport)
             newMap->Add((GameObject*)this);
 
             // Transport inserted in current map ActiveObjects list
-            if (!GetTransportKit()->GetPassengers().empty())
-            {
-                DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Transport::SetPosition %s notify passengers (count %u) for finished change map to %u",GetObjectGuid().GetString().c_str(), GetTransportKit()->GetPassengers().size(), loc.GetMapId());
-                GetTransportKit()->CallForAllPassengers(NotifyMapChangeEnd(newMap,loc));
-            }
+            GetTransportKit()->NotifyMapChangeEnd(loc);
 
             DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::SetPosition %s teleported to (%f, %f, %f, %f)", GetObjectGuid().GetString().c_str(), loc.x, loc.y, loc.z, loc.orientation);
         }
@@ -780,72 +771,83 @@ void TransportKit::CalculateBoardingPositionOf(float gx, float gy, float gz, flo
     lo = MapManager::NormalizeOrientation(go - GetBase()->GetOrientation());
 }
 
-void NotifyMapChangeBegin::operator() (WorldObject* obj) const
+void TransportKit::NotifyMapChangeBegin(WorldLocation const& oldloc, WorldLocation const& loc)
 {
-    if (!obj)
-        return;
+    Map* oldMap = GetBase()->GetMap();
 
-    switch(obj->GetTypeId())
+    if (!GetPassengers()->empty())
     {
-        case TYPEID_GAMEOBJECT:
-        case TYPEID_DYNAMICOBJECT:
-            break;
-        case TYPEID_UNIT:
-            if (obj->GetObjectGuid().IsPet())
-                break;
-            // TODO Despawn creatures in old map
-            break;
-        case TYPEID_PLAYER:
+        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportKit::NotifyMapChangeBegin %s notify passengers (count %u) for change map from %u to %u",GetBase()->GetObjectGuid().GetString().c_str(), GetPassengers()->size(), oldloc.GetMapId(), loc.GetMapId());
+        for (PassengerMap::const_iterator itr = GetPassengers()->begin(); itr != GetPassengers()->end(); ++itr)
         {
-            Player* plr = (Player*)obj;
-            if (!plr)
-                return;
-            if (plr->isDead() && !plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
-                plr->ResurrectPlayer(1.0);
-            if (plr->GetSession() && m_oldloc.GetMapId() != m_loc.GetMapId())
+            WorldObject* obj = itr->first;
+            if (!obj)
+                continue;
+
+            switch(obj->GetTypeId())
             {
-                WorldPacket data(SMSG_NEW_WORLD, 4);
-                data << uint32(plr->GetTransport()->GetTransportMapId());
-                plr->GetSession()->SendPacket(&data);
+                case TYPEID_GAMEOBJECT:
+                case TYPEID_DYNAMICOBJECT:
+                    break;
+                case TYPEID_UNIT:
+                    if (obj->GetObjectGuid().IsPet())
+                        break;
+                    // TODO Despawn creatures in old map
+                    break;
+                case TYPEID_PLAYER:
+                {
+
+                    Player* plr = (Player*)obj;
+                    if (!plr)
+                        continue;
+                    if (plr->isDead() && !plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
+                        plr->ResurrectPlayer(1.0);
+                    if (plr->GetSession() && oldloc.GetMapId() != loc.GetMapId())
+                    {
+                        WorldPacket data(SMSG_NEW_WORLD, 4);
+                        data << uint32(GetBase()->GetTransportMapId());
+                        plr->GetSession()->SendPacket(&data);
+                    }
+                    plr->TeleportTo(loc, TELE_TO_NOT_LEAVE_TRANSPORT);
+                    break;
+                }
+                // TODO - make corpse moving.
+                case TYPEID_CORPSE:
+                default:
+                    break;
             }
-            plr->TeleportTo(m_loc, TELE_TO_NOT_LEAVE_TRANSPORT);
-            break;
         }
-        // TODO - make corpse moving.
-        case TYPEID_CORPSE:
-        default:
-            break;
     }
+    Reset();
 }
 
-void NotifyMapChangeEnd::operator() (WorldObject* obj) const
+void TransportKit::NotifyMapChangeEnd(WorldLocation const& loc)
 {
-    if (!obj)
-        return;
-
-    switch(obj->GetTypeId())
+    Map* newMap = GetBase()->GetMap();
+    if (!GetPassengers()->empty())
     {
-        case TYPEID_GAMEOBJECT:
-        case TYPEID_DYNAMICOBJECT:
-            break;
-        case TYPEID_UNIT:
-            // TODO Spawn creatures in new map
-            break;
-        case TYPEID_PLAYER:
-            break;
-        // TODO - make corpse moving.
-        case TYPEID_CORPSE:
-        default:
-            break;
+        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportKit::NotifyMapChangeEnd %s notify passengers (count %u) for finished change map to %u",GetBase()->GetObjectGuid().GetString().c_str(), GetPassengers()->size(), loc.GetMapId());
+        for (PassengerMap::const_iterator itr = GetPassengers()->begin(); itr != GetPassengers()->end(); ++itr)
+        {
+            WorldObject* obj = itr->first;
+            if (!obj)
+                continue;
+
+            switch(obj->GetTypeId())
+            {
+                case TYPEID_GAMEOBJECT:
+                case TYPEID_DYNAMICOBJECT:
+                    break;
+                case TYPEID_UNIT:
+                    // TODO Spawn creatures in new map
+                    break;
+                case TYPEID_PLAYER:
+                    break;
+                // TODO - make corpse moving.
+                case TYPEID_CORPSE:
+                default:
+                    break;
+            }
+        }
     }
 }
-
-void SendCurrentTransportDataWithHelper::operator() (WorldObject* object) const
-{
-    if (!object || !object->IsInWorld() || object->GetObjectGuid() == m_player->GetObjectGuid())
-        return;
-
-    if (m_player->HaveAtClient(object->GetObjectGuid()))
-        object->BuildCreateUpdateBlockForPlayer(m_data, m_player);
-}
-

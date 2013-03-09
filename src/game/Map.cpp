@@ -1133,7 +1133,14 @@ void Map::SendInitSelf(Player* player )
     {
         // attach to player data current transport data
         transport->BuildCreateUpdateBlockForPlayer(&data, player);
-        transport->GetTransportKit()->CallForAllPassengers(SendCurrentTransportDataWithHelper(&data, player));
+        for (PassengerMap::const_iterator itr = transport->GetTransportKit()->GetPassengers()->begin(); itr != transport->GetTransportKit()->GetPassengers()->end(); ++itr)
+        {
+            WorldObject* obj = itr->first;
+            if (obj && obj->IsInWorld() && (player != obj) && player->HaveAtClient(obj->GetObjectGuid()))
+            {
+                obj->BuildCreateUpdateBlockForPlayer(&data, player);
+            }
+        }
     }
 
     WorldPacket packet;

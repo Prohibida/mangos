@@ -37,58 +37,11 @@
 #define _TRANSPORT_SYSTEM_H
 
 #include "Common.h"
-#include "Map.h"
 #include "Object.h"
-#include "ObjectGuid.h"
 
-class TransportBase;
+class TransportInfo;
 
-/**
- * A class to provide basic information for each transported passenger. This includes
- * - local positions
- * - Accessors to get the transporter
- */
-
-class MANGOS_DLL_DECL TransportInfo
-{
-    public:
-        explicit TransportInfo(WorldObject* owner, TransportBase* transport, float lx, float ly, float lz, float lo, int8 seat);
-        TransportInfo(TransportInfo const& info);
-        ~TransportInfo();
-
-        // Set local positions
-        void SetLocalPosition(float lx, float ly, float lz, float lo);
-        void SetTransportSeat(int8 seat) { m_seat = seat; }
-
-        // Accessors
-        WorldObject* GetTransport() const;
-        ObjectGuid GetTransportGuid() const;
-
-        // Required for chain-updating (passenger on transporter on transporter)
-        bool IsOnVehicle() const;
-
-        // Get local position and seat
-        uint8 GetTransportSeat() const { return m_seat; }
-        float GetLocalOrientation() const { return m_localPosition.o; }
-        float GetLocalPositionX() const { return m_localPosition.x; }
-        float GetLocalPositionY() const { return m_localPosition.y; }
-        float GetLocalPositionZ() const { return m_localPosition.z; }
-        void GetLocalPosition(float& lx, float& ly, float& lz, float& lo) const
-        {
-            lx = m_localPosition.x;
-            ly = m_localPosition.y;
-            lz = m_localPosition.z;
-            lo = m_localPosition.o;
-        }
-
-    private:
-        WorldObject* m_owner;                               ///< Passenger
-        TransportBase* m_transport;                         ///< Transporter
-        Position m_localPosition;
-        int8 m_seat;
-};
-
-typedef UNORDERED_MAP < ObjectGuid /*passenger*/, TransportInfo /*passengerInfo*/ > PassengerMap;
+typedef UNORDERED_MAP < WorldObject* /*passenger*/, TransportInfo* /*passengerInfo*/ > PassengerMap;
 
 /**
  * A class to provide basic support for each transporter. This includes
@@ -104,7 +57,7 @@ class MANGOS_DLL_DECL TransportBase
 
         void Update(uint32 diff);
         void UpdateGlobalPositions();
-        void UpdateGlobalPositionOf(ObjectGuid const& passengerGuid, float lx, float ly, float lz, float lo) const;
+        void UpdateGlobalPositionOf(WorldObject* passenger, float lx, float ly, float lz, float lo) const;
 
         WorldObject* GetOwner() const { return m_owner; }
 
@@ -126,52 +79,49 @@ class MANGOS_DLL_DECL TransportBase
         Position m_lastPosition;
         float m_sinO, m_cosO;
         uint32 m_updatePositionsTimer;                      ///< Timer that is used to trigger updates for global coordinate calculations
+};
 
+/**
+ * A class to provide basic information for each transported passenger. This includes
+ * - local positions
+ * - Accessors to get the transporter
+ */
+
+class MANGOS_DLL_DECL TransportInfo
+{
     public:
-        template<typename Func> void CallForAllPassengers(Func const& func)
+        explicit TransportInfo(WorldObject* owner, TransportBase* transport, float lx, float ly, float lz, float lo, int8 seat);
+
+        // Set local positions
+        void SetLocalPosition(float lx, float ly, float lz, float lo);
+        void SetTransportSeat(int8 seat) { m_seat = seat; }
+
+        // Accessors
+        WorldObject* GetTransport() const { return m_transport->GetOwner(); }
+        ObjectGuid GetTransportGuid() const { return m_transport->GetOwner()->GetObjectGuid(); }
+
+        // Required for chain-updating (passenger on transporter on transporter)
+        bool IsOnVehicle() const { return m_transport->GetOwner()->GetTypeId() == TYPEID_PLAYER || m_transport->GetOwner()->GetTypeId() == TYPEID_UNIT; }
+
+        // Get local position and seat
+        uint8 GetTransportSeat() const { return m_seat; }
+        float GetLocalOrientation() const { return m_localPosition.o; }
+        float GetLocalPositionX() const { return m_localPosition.x; }
+        float GetLocalPositionY() const { return m_localPosition.y; }
+        float GetLocalPositionZ() const { return m_localPosition.z; }
+        void GetLocalPosition(float& lx, float& ly, float& lz, float& lo) const
         {
-            if (!m_passengers.empty())
-            {
-                MAPLOCK_READ(GetOwner(), MAP_LOCK_TYPE_MOVEMENT);
-                for (PassengerMap::const_iterator itr = m_passengers.begin(); itr != m_passengers.end(); ++itr)
-                {
-                    WorldObject* passenger = GetOwner()->GetMap()->GetWorldObject(itr->first);
-                    if (!passenger)
-                        continue;
-                    func(passenger);
-                }
-            }
+            lx = m_localPosition.x;
+            ly = m_localPosition.y;
+            lz = m_localPosition.z;
+            lo = m_localPosition.o;
         }
-};
 
-struct NotifyMapChangeBegin
-{
-    explicit NotifyMapChangeBegin(Map const* map, WorldLocation const& oldloc, WorldLocation const& loc) :
-        m_map(map), m_oldloc(oldloc), m_loc(loc)
-    {}
-    void operator()(WorldObject* object) const;
-    Map const* m_map;
-    WorldLocation const& m_oldloc;
-    WorldLocation const& m_loc;
-};
-
-struct NotifyMapChangeEnd
-{
-    explicit NotifyMapChangeEnd(Map const* map, WorldLocation const& loc) :
-        m_map(map), m_loc(loc)
-    {}
-    void operator()(WorldObject* object) const;
-    Map const* m_map;
-    WorldLocation const& m_loc;
-};
-
-struct SendCurrentTransportDataWithHelper
-{
-    explicit SendCurrentTransportDataWithHelper(UpdateData* data, Player* player) : m_data(data), m_player(player)
-    {}
-    void operator()(WorldObject* object) const;
-    UpdateData* m_data;
-    Player* m_player;
+    private:
+        WorldObject* m_owner;                               ///< Passenger
+        TransportBase* m_transport;                         ///< Transporter
+        Position m_localPosition;
+        int8 m_seat;
 };
 
 #endif
