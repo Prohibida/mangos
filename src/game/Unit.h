@@ -756,7 +756,7 @@ class MovementInfo
         void AddMovementFlag2(MovementFlags2 f) { moveFlags2 |= f; }
 
         // Position manipulations
-        Position const *GetPos() const { return &pos; }
+        Position const* GetPos() const { return &pos; }
         void SetTransportData(ObjectGuid guid, float x, float y, float z, float o, uint32 time, int8 seat, VehicleSeatEntry const* seatInfo = NULL)
         {
             t_guid = guid;
@@ -781,7 +781,7 @@ class MovementInfo
             moveFlags2 = MOVEFLAG2_NONE;
         }
         ObjectGuid const& GetTransportGuid() const { return t_guid; }
-        Position const *GetTransportPos() const { return &t_pos; }
+        Position const* GetTransportPos() const { return &t_pos; }
         int8 GetTransportSeat() const { return t_seat; }
         uint32 GetTransportDBCSeat() const { return t_seatInfo ? t_seatInfo->m_ID : 0; }
         uint32 GetVehicleSeatFlags() const { return t_seatInfo ? t_seatInfo->m_flags : 0; }
@@ -790,6 +790,12 @@ class MovementInfo
         void ChangeOrientation(float o) { pos.o = o; }
         void ChangePosition(float x, float y, float z, float o) { pos.x = x; pos.y = y; pos.z = z; pos.o = o; }
         void ChangeTransportPosition(float x, float y, float z, float o) { t_pos.x = x; t_pos.y = y; t_pos.z = z; t_pos.o = o; }
+
+        void ChangePosition(Position const& _pos) { pos = _pos; }
+        void ChangeTransportPosition(Position const& _pos) { t_pos = _pos; }
+        Position const& GetPosition() const { return pos; }
+        Position const& GetTransportPosition() const { return t_pos; }
+
         void UpdateTime(uint32 _time) { time = _time; }
 
         struct JumpInfo
@@ -1616,7 +1622,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void MonsterMoveToDestination(float x, float y, float z, float o, float speed, float height, bool isKnockBack = false, Unit* target = NULL);
         // recommend use MonsterMove/MonsterMoveWithSpeed for most case that correctly work with movegens
         // if used additional args in ... part then floats must explicitly casted to double
-        virtual bool SetPosition(float x, float y, float z, float orientation, bool teleport = false);
+        virtual bool SetPosition(Position const& pos, bool teleport = false);
         virtual void SetFallInformation(uint32 time, float z) {};
 
         void MonsterMoveWithSpeed(float x, float y, float z, float speed, bool generatePath = true, bool forceDestination = false);

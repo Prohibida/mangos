@@ -79,38 +79,36 @@ void TransportBase::UpdateGlobalPositions()
         MAPLOCK_READ(GetOwner(), MAP_LOCK_TYPE_MOVEMENT);
         // Update global positions
         for (PassengerMap::const_iterator itr = m_passengers.begin(); itr != m_passengers.end(); ++itr)
-            UpdateGlobalPositionOf(itr->first, itr->second.GetLocalPositionX(), itr->second.GetLocalPositionY(),
-                               itr->second.GetLocalPositionZ(), itr->second.GetLocalOrientation());
+            UpdateGlobalPositionOf(itr->first, itr->second.GetLocalPosition());
     }
 
     m_lastPosition = pos;
 }
 
 // Update the global position of a passenger
-void TransportBase::UpdateGlobalPositionOf(ObjectGuid const& passengerGuid, float lx, float ly, float lz, float lo) const
+void TransportBase::UpdateGlobalPositionOf(ObjectGuid const& passengerGuid, Position const& pos) const
 {
     WorldObject* passenger = GetOwner()->GetMap()->GetWorldObject(passengerGuid);
 
     if (!passenger)
         return;
 
-    float gx, gy, gz, go;
-    CalculateGlobalPositionOf(lx, ly, lz, lo, gx, gy, gz, go);
+    Position g = CalculateGlobalPositionOf(pos);
 
     switch(passenger->GetTypeId())
     {
         case TYPEID_GAMEOBJECT:
         case TYPEID_DYNAMICOBJECT:
-            m_owner->GetMap()->Relocation((GameObject*)passenger, gx, gy, gz, go);
+            m_owner->GetMap()->Relocation((GameObject*)passenger, g.x, g.y, g.z, g.o);
             break;
         case TYPEID_UNIT:
-            m_owner->GetMap()->Relocation((Creature*)passenger, gx, gy, gz, go);
+            m_owner->GetMap()->Relocation((Creature*)passenger, g.x, g.y, g.z, g.o);
             // If passenger is vehicle
             if (((Unit*)passenger)->IsVehicle())
                 ((Unit*)passenger)->GetVehicleKit()->UpdateGlobalPositions();
             break;
         case TYPEID_PLAYER:
-            m_owner->GetMap()->Relocation((Player*)passenger, gx, gy, gz, go);
+            m_owner->GetMap()->Relocation((Player*)passenger, g.x, g.y, g.z, g.o);
             // If passenger is vehicle
             if (((Unit*)passenger)->IsVehicle())
                 ((Unit*)passenger)->GetVehicleKit()->UpdateGlobalPositions();
@@ -137,17 +135,19 @@ void TransportBase::NormalizeRotatedPosition(float rx, float ry, float& lx, floa
 }
 
 // Calculate a global position of local positions based on this transporter
-void TransportBase::CalculateGlobalPositionOf(float lx, float ly, float lz, float lo, float& gx, float& gy, float& gz, float& go) const
+Position const& TransportBase::CalculateGlobalPositionOf(Position const& pos) const
 {
-    RotateLocalPosition(lx, ly, gx, gy);
-    gx += m_owner->GetPositionX();
-    gy += m_owner->GetPositionY();
+    Position g(pos);
+    RotateLocalPosition(pos.x, pos.y, g.x, g.y);
+    g.x += m_owner->GetPositionX();
+    g.y += m_owner->GetPositionY();
 
-    gz = lz + m_owner->GetPositionZ();
-    go = MapManager::NormalizeOrientation(lo + m_owner->GetOrientation());
+    g.z = pos.z + m_owner->GetPositionZ();
+    g.o = MapManager::NormalizeOrientation(pos.o + m_owner->GetOrientation());
+    return g;
 }
 
-void TransportBase::BoardPassenger(WorldObject* passenger, float lx, float ly, float lz, float lo, int8 seat)
+void TransportBase::BoardPassenger(WorldObject* passenger, Position const& pos, int8 seat)
 {
     if (!passenger)
         return;
@@ -155,7 +155,7 @@ void TransportBase::BoardPassenger(WorldObject* passenger, float lx, float ly, f
     MAPLOCK_WRITE(GetOwner(), MAP_LOCK_TYPE_MOVEMENT);
 
     // Insert our new passenger
-    m_passengers.insert(PassengerMap::value_type(passenger->GetObjectGuid(),TransportInfo(passenger, this, lx, ly, lz, lo, seat)));
+    m_passengers.insert(PassengerMap::value_type(passenger->GetObjectGuid(),TransportInfo(passenger, this, pos, seat)));
 
     PassengerMap::iterator itr = m_passengers.find(passenger->GetObjectGuid());
     MANGOS_ASSERT(itr != m_passengers.end());
@@ -186,10 +186,10 @@ void TransportBase::UnBoardPassenger(WorldObject* passenger)
 
 /* **************************************** TransportInfo ****************************************/
 
-TransportInfo::TransportInfo(WorldObject* owner, TransportBase* transport, float lx, float ly, float lz, float lo, int8 seat) :
+TransportInfo::TransportInfo(WorldObject* owner, TransportBase* transport, Position const& pos, int8 seat) :
     m_owner(owner),
     m_transport(transport),
-    m_localPosition(lx, ly, lz, lo),
+    m_localPosition(pos),
     m_seat(seat)
 {
     MANGOS_ASSERT(owner && m_transport);
@@ -204,15 +204,12 @@ TransportInfo::TransportInfo(TransportInfo const& info) :
     MANGOS_ASSERT(m_owner && m_transport);
 }
 
-void TransportInfo::SetLocalPosition(float lx, float ly, float lz, float lo)
+void TransportInfo::SetLocalPosition(Position const& pos)
 {
-    m_localPosition.x = lx;
-    m_localPosition.y = ly;
-    m_localPosition.z = lz;
-    m_localPosition.o = lo;
+    m_localPosition = pos;
 
     // Update global position
-    m_transport->UpdateGlobalPositionOf(m_owner->GetObjectGuid(), lx, ly, lz, lo);
+    m_transport->UpdateGlobalPositionOf(m_owner->GetObjectGuid(), pos);
 }
 
 TransportInfo::~TransportInfo()

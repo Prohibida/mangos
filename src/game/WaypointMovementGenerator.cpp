@@ -97,8 +97,8 @@ void WaypointMovementGenerator<Creature>::Interrupt(Creature &creature)
 {
     if (!creature.movespline->Finalized())
     {
-        Location loc = creature.movespline->ComputePosition();
-        creature.SetPosition(loc.x,loc.y,loc.z,loc.orientation);
+        Position loc = creature.movespline->ComputePosition();
+        creature.SetPosition(loc);
         creature.movespline->_Interrupt();
     }
     creature.clearUnitState(UNIT_STAT_ROAMING | UNIT_STAT_ROAMING_MOVE);

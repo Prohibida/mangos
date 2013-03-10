@@ -748,15 +748,14 @@ void TransportKit::Reset()
 bool TransportKit::AddPassenger(WorldObject* passenger)
 {
     // Calculate passengers local position
-    float lx, ly, lz, lo;
-    CalculateBoardingPositionOf(passenger->GetPositionX(), passenger->GetPositionY(), passenger->GetPositionZ(), passenger->GetOrientation(), lx, ly, lz, lo);
-    BoardPassenger(passenger, lx, ly, lz, lo, -1);        // Use TransportBase to store the passenger
+    Position pos = CalculateBoardingPositionOf(passenger->GetPosition());
+    BoardPassenger(passenger, pos, -1);        // Use TransportBase to store the passenger
     if (passenger->isType(TYPEMASK_UNIT))
     {
         Unit* _passenger = (Unit*)passenger;
         _passenger->m_movementInfo.ClearTransportData();
         _passenger->m_movementInfo.AddMovementFlag(MOVEFLAG_ONTRANSPORT);
-        _passenger->m_movementInfo.SetTransportData(GetBase()->GetObjectGuid(), lx, ly, lz, lo, 0, -1);
+        _passenger->m_movementInfo.SetTransportData(GetBase()->GetObjectGuid(), pos.x, pos.y, pos.z, pos.o, 0, -1);
     }
 }
 
@@ -772,12 +771,14 @@ void TransportKit::RemovePassenger(WorldObject* passenger)
 }
 
 // Helper function to undo the turning of the vehicle to calculate a relative position of the passenger when boarding
-void TransportKit::CalculateBoardingPositionOf(float gx, float gy, float gz, float go, float &lx, float &ly, float &lz, float &lo)
+Position const& TransportKit::CalculateBoardingPositionOf(Position const& pos) const override
 {
-    NormalizeRotatedPosition(gx - GetBase()->GetPositionX(), gy - GetBase()->GetPositionY(), lx, ly);
+    Position l(pos);
+    NormalizeRotatedPosition(pos.x - GetBase()->GetPositionX(), pos.y - GetBase()->GetPositionY(), l.x, l.y);
 
-    lz = gz - GetBase()->GetPositionZ();
-    lo = MapManager::NormalizeOrientation(go - GetBase()->GetOrientation());
+    l.z = pos.z - GetBase()->GetPositionZ();
+    l.o = MapManager::NormalizeOrientation(pos.o - GetBase()->GetOrientation());
+    return l;
 }
 
 void NotifyMapChangeBegin::operator() (WorldObject* obj) const

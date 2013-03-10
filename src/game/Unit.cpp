@@ -496,17 +496,17 @@ bool Unit::haveOffhandWeapon() const
     }
 }
 
-bool Unit::SetPosition(float x, float y, float z, float orientation, bool teleport)
+bool Unit::SetPosition(Position const& pos, bool teleport)
 {
     // prevent crash when a bad coord is sent by the client
-    if (!MaNGOS::IsValidMapCoord(x, y, z, orientation))
+    if (!MaNGOS::IsValidMapCoord(pos.x, pos.y, pos.z, pos.orientation))
     {
-        DEBUG_LOG("Unit::SetPosition(%f, %f, %f, %f, %d) .. bad coordinates for unit %d!", x, y, z, orientation, teleport, GetGUIDLow());
+        DEBUG_LOG("Unit::SetPosition(%f, %f, %f, %f, %d) .. bad coordinates for unit %s!", pos.x, pos.y, pos.z, pos.orientation, teleport, GetObjectGuid().GetString().c_str());
         return false;
     }
 
-    bool turn = GetOrientation() != orientation;
-    bool relocate = (teleport || GetPositionX() != x || GetPositionY() != y || GetPositionZ() != z);
+    bool turn = fabs(GetOrientation() - pos.orientation) > M_NULL_F;
+    bool relocate = !((Position)GetPosition() == pos);
 
     if (turn)
         RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TURNING);
@@ -516,12 +516,12 @@ bool Unit::SetPosition(float x, float y, float z, float orientation, bool telepo
         RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_MOVE);
 
         if (GetTypeId() == TYPEID_PLAYER)
-            GetMap()->Relocation((Player*)this, x, y, z, orientation);
+            GetMap()->Relocation((Player*)this, pos.x, pos.y, pos.z, pos.orientation);
         else
-            GetMap()->Relocation((Creature*)this, x, y, z, orientation);
+            GetMap()->Relocation((Creature*)this, pos.x, pos.y, pos.z, pos.orientation);
     }
     else if (turn)
-        SetOrientation(orientation);
+        SetOrientation(pos.orientation);
 
     return relocate || turn;
 }
@@ -14172,15 +14172,15 @@ void Unit::UpdateSplineMovement(uint32 t_diff)
     if (m_movesplineTimer.Passed() || arrived)
     {
         m_movesplineTimer.Reset(sWorld.getConfig(CONFIG_UINT32_POSITION_UPDATE_DELAY));
-        Location loc = movespline->ComputePosition();
+        Position loc = movespline->ComputePosition();
 
         if (IsBoarded())
         {
-            m_movementInfo.ChangeTransportPosition(loc.x, loc.y, loc.z, loc.orientation);
-            GetTransportInfo()->SetLocalPosition(loc.x, loc.y, loc.z, loc.orientation);
+            m_movementInfo.ChangeTransportPosition(loc);
+            GetTransportInfo()->SetLocalPosition(loc);
         }
         else
-            SetPosition(loc.x,loc.y,loc.z,loc.orientation);
+            SetPosition(loc);
     }
 }
 

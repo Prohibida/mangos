@@ -119,7 +119,7 @@ class  MANGOS_DLL_SPEC TransportKit : public TransportBase
 
     private:
         // Internal use to calculate the boarding position
-        void CalculateBoardingPositionOf(float gx, float gy, float gz, float go, float &lx, float &ly, float &lz, float &lo);
+        virtual Position const& CalculateBoardingPositionOf(Position const& pos) const override;
 
         bool m_isInitialized;
 };

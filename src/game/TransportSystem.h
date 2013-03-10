@@ -52,12 +52,12 @@ class TransportBase;
 class MANGOS_DLL_DECL TransportInfo
 {
     public:
-        explicit TransportInfo(WorldObject* owner, TransportBase* transport, float lx, float ly, float lz, float lo, int8 seat);
+        explicit TransportInfo(WorldObject* owner, TransportBase* transport, Position const& pos, int8 seat);
         TransportInfo(TransportInfo const& info);
         ~TransportInfo();
 
         // Set local positions
-        void SetLocalPosition(float lx, float ly, float lz, float lo);
+        void SetLocalPosition(Position const& pos);
         void SetTransportSeat(int8 seat) { m_seat = seat; }
 
         // Accessors
@@ -69,17 +69,7 @@ class MANGOS_DLL_DECL TransportInfo
 
         // Get local position and seat
         uint8 GetTransportSeat() const { return m_seat; }
-        float GetLocalOrientation() const { return m_localPosition.o; }
-        float GetLocalPositionX() const { return m_localPosition.x; }
-        float GetLocalPositionY() const { return m_localPosition.y; }
-        float GetLocalPositionZ() const { return m_localPosition.z; }
-        void GetLocalPosition(float& lx, float& ly, float& lz, float& lo) const
-        {
-            lx = m_localPosition.x;
-            ly = m_localPosition.y;
-            lz = m_localPosition.z;
-            lo = m_localPosition.o;
-        }
+        Position const& GetLocalPosition() const { return m_localPosition; }
 
     private:
         WorldObject* m_owner;                               ///< Passenger
@@ -104,7 +94,7 @@ class MANGOS_DLL_DECL TransportBase
 
         void Update(uint32 diff);
         void UpdateGlobalPositions();
-        void UpdateGlobalPositionOf(ObjectGuid const& passengerGuid, float lx, float ly, float lz, float lo) const;
+        void UpdateGlobalPositionOf(ObjectGuid const& passengerGuid, Position const& pos) const;
 
         WorldObject* GetOwner() const { return m_owner; }
 
@@ -112,11 +102,11 @@ class MANGOS_DLL_DECL TransportBase
         void RotateLocalPosition(float lx, float ly, float& rx, float& ry) const;
         void NormalizeRotatedPosition(float rx, float ry, float& lx, float& ly) const;
 
-        void CalculateGlobalPositionOf(float lx, float ly, float lz, float lo, float& gx, float& gy, float& gz, float& go) const;
+        virtual Position const& CalculateGlobalPositionOf(Position const& pos) const;
 
     protected:
         // Helper functions to add/ remove a passenger from the list
-        void BoardPassenger(WorldObject* passenger, float lx, float ly, float lz, float lo, int8 seat);
+        void BoardPassenger(WorldObject* passenger, Position const& pos, int8 seat);
         void UnBoardPassenger(WorldObject* passenger);
 
         WorldObject* m_owner;                               ///< The transporting unit

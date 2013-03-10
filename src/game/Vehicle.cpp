@@ -158,27 +158,30 @@ Unit* VehicleKit::GetPassenger(int8 seatId) const
 }
 
 // Helper function to undo the turning of the vehicle to calculate a relative position of the passenger when boarding
-void VehicleKit::CalculateBoardingPositionOf(float gx, float gy, float gz, float go, float &lx, float &ly, float &lz, float &lo)
+Position const& VehicleKit::CalculateBoardingPositionOf(Position const& pos) const override
 {
-    NormalizeRotatedPosition(gx - GetBase()->GetPositionX(), gy - GetBase()->GetPositionY(), lx, ly);
+    Position l(pos);
+    NormalizeRotatedPosition(pos.x - GetBase()->GetPositionX(), pos.y - GetBase()->GetPositionY(), l.x, l.y);
 
-    lz = gz - GetBase()->GetPositionZ();
-    lo = MapManager::NormalizeOrientation(go - GetBase()->GetOrientation());
+    l.z = pos.z - GetBase()->GetPositionZ();
+    l.o = MapManager::NormalizeOrientation(pos.o - GetBase()->GetOrientation());
+    return l;
 }
 
-void VehicleKit::CalculateSeatPositionOf(VehicleSeatEntry const* seatInfo, float &x, float &y, float &z, float &o)
+Position const& VehicleKit::CalculateSeatPositionOf(VehicleSeatEntry const* seatInfo) const
 {
     MANGOS_ASSERT(seatInfo);
 
-    x = y = z = o = 0.0f;
+    Position pos = Position();
 
 // FIXME - requires correct method for calculate seat offset
 /*
-    x = seatInfo->m_attachmentOffsetX + m_dst_x;
-    y = seatInfo->m_attachmentOffsetY + m_dst_y;
-    z = seatInfo->m_attachmentOffsetZ + m_dst_z;
-    o = seatInfo->m_passengerYaw      + m_dst_o;
+    pos.x = seatInfo->m_attachmentOffsetX + m_dst_x;
+    pos.y = seatInfo->m_attachmentOffsetY + m_dst_y;
+    pos.z = seatInfo->m_attachmentOffsetZ + m_dst_z;
+    pos.o = seatInfo->m_passengerYaw      + m_dst_o;
 */
+    return pos;
 }
 
 bool VehicleKit::AddPassenger(Unit* passenger, int8 seatId)
@@ -217,14 +220,13 @@ bool VehicleKit::AddPassenger(Unit* passenger, int8 seatId)
     GetBase()->SetPhaseMask(passenger->GetPhaseMask(), true);
 
     // Calculate passengers local position
-    float lx, ly, lz, lo;
-    CalculateBoardingPositionOf(passenger->GetPositionX(), passenger->GetPositionY(), passenger->GetPositionZ(), passenger->GetOrientation(), lx, ly, lz, lo);
+    Position localPos =CalculateBoardingPositionOf(passenger->GetPosition());
 
-    BoardPassenger(passenger, lx, ly, lz, lo, seat->first);        // Use TransportBase to store the passenger
+    BoardPassenger(passenger, localPos, seat->first);        // Use TransportBase to store the passenger
 
     passenger->m_movementInfo.ClearTransportData();
     passenger->m_movementInfo.AddMovementFlag(MOVEFLAG_ONTRANSPORT);
-    passenger->m_movementInfo.SetTransportData(GetBase()->GetObjectGuid(), lx, ly, lz, lo, WorldTimer::getMSTime(), seat->first, seatInfo);
+    passenger->m_movementInfo.SetTransportData(GetBase()->GetObjectGuid(), localPos.x, localPos.y, localPos.z, localPos.o, WorldTimer::getMSTime(), seat->first, seatInfo);
 
     if (passenger->GetTypeId() == TYPEID_PLAYER)
     {
@@ -314,8 +316,8 @@ bool VehicleKit::AddPassenger(Unit* passenger, int8 seatId)
     // need correct, position not normalized currently
     // Calculate passenger seat position (FIXME - requires correct calculation!)
     // float lx, ly, lz, lo; - reuse variable definition from preview calculation
-    CalculateSeatPositionOf(seatInfo, lx, ly, lz, lo);
-    passenger->GetMotionMaster()->MoveBoardVehicle(lx, ly, lz, lo,
+    Position seatpos = CalculateSeatPositionOf(seatInfo);
+    passenger->GetMotionMaster()->MoveBoardVehicle(seatpos.x, seatpos.y, seatpos.z, seatpos.o,
         seatInfo->m_enterSpeed < M_NULL_F ? BASE_CHARGE_SPEED : seatInfo->m_enterSpeed,
         0.0f);
 
