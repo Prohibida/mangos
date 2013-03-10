@@ -75,11 +75,11 @@ struct MANGOS_DLL_SPEC Position : public Location
         : Location(), coord_x(x), coord_y(y), coord_z(z), m_phaseMask(PHASEMASK_NORMAL)
     {};
 
-    Position(float _x, float _y, float _z, float _o = 0.0f)
+    explicit Position(float _x, float _y, float _z, float _o = 0.0f)
         : Location(_x, _y, _z, _o), coord_x(x), coord_y(y), coord_z(z), m_phaseMask(PHASEMASK_NORMAL)
     {};
 
-    Position(float _x, float _y, float _z, float _o, uint32 phaseMask)
+    explicit Position(float _x, float _y, float _z, float _o, uint32 phaseMask)
         : Location(_x, _y, _z, _o), coord_x(x), coord_y(y), coord_z(z), m_phaseMask(phaseMask)
     {};
 
@@ -121,16 +121,10 @@ struct MANGOS_DLL_SPEC WorldLocation : public Position
         : Position(), mapid(-1), instance(0), realmid(0)
     {}
 
-    WorldLocation(uint32 _mapid, float _x, float _y, float _z, float _o = 0, uint32 phaseMask = PHASEMASK_NORMAL)
-        : Position(_x, _y, _z, _o, phaseMask), mapid(_mapid), instance(0), realmid(0)
-    {}
+    explicit WorldLocation(uint32 _mapid, float _x, float _y, float _z, float _o = 0, uint32 phaseMask = PHASEMASK_NORMAL, uint32 _instance = 0, uint32 _realmid = 0);
 
-    WorldLocation(uint32 _mapid, uint32 _instance, uint32 _realmid)
+    explicit WorldLocation(uint32 _mapid, uint32 _instance, uint32 _realmid)
         : Position(), mapid(_mapid), instance(_instance), realmid(_realmid)
-    {}
-
-    WorldLocation(float _x, float _y, float _z, float _o, uint32 _mapid, uint32 _instance, uint32 _realmid)
-        : Position(_x, _y, _z, _o), mapid(_mapid), instance(_instance), realmid(_realmid)
     {}
 
     WorldLocation(WorldLocation const &loc)
@@ -168,6 +162,8 @@ struct MANGOS_DLL_SPEC WorldLocation : public Position
     void SetOrientation(float value);
 
     WorldLocation& operator = (WorldLocation const& loc);
+
+    WorldLocation& operator = (Position const& pos);
 
     float GetDistance(WorldLocation const& loc) const;
 

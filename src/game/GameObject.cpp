@@ -130,9 +130,9 @@ void GameObject::RemoveFromWorld(bool remove)
 bool GameObject::Create(uint32 guidlow, uint32 name_id, Map* map, uint32 phaseMask, float x, float y, float z, float ang, QuaternionData rotation, uint8 animprogress, GOState go_state)
 {
     MANGOS_ASSERT(map);
-    Relocate(x, y, z, ang);
+
+    Relocate(WorldLocation(map->GetId(), x, y, z, ang, phaseMask, map->GetInstanceId()));
     SetMap(map);
-    SetPhaseMask(phaseMask, false);
 
     if (!IsPositionValid())
     {
@@ -571,7 +571,7 @@ void GameObject::UpdateSplineMovement(uint32 t_diff)
         if (IsBoarded())
             GetTransportInfo()->SetLocalPosition(loc);
         else
-            Relocate(loc.x, loc.y, loc.z, loc.orientation);
+            Relocate(loc);
     }
 }
 

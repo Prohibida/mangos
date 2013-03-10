@@ -470,11 +470,12 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         bool IsBoarded() const { return m_transportInfo != NULL; }
         void SetTransportInfo(TransportInfo* transportInfo) { m_transportInfo = transportInfo; }
 
-        void Relocate(float x, float y, float z, float orientation);
-        void Relocate(float x, float y, float z);
         void Relocate(WorldLocation const& location);
-
+        void Relocate(Position const& position);
         void SetOrientation(float orientation);
+
+        // FIXME - need remove wrapper after cleanup SD2
+        void Relocate(float x, float y, float z, float orientation = 0.0f) { Relocate(Position(x, y, z, orientation, GetPhaseMask())); };
 
         float const& GetPositionX() const     { return m_position.x; }
         float const& GetPositionY() const     { return m_position.y; }

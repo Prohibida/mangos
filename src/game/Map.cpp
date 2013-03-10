@@ -816,25 +816,25 @@ Map::Remove(T* obj, bool remove)
 }
 
 template<class T>
-void Map::Relocation(T* obj, float x, float y, float z, float orientation)
+void Map::Relocation(T* obj, Position const& pos)
 {
     sLog.outError("Map::Relocation unhandled relocation call (object %s)!", obj ? obj->GetObjectGuid().GetString().c_str() : "<none>");
     MANGOS_ASSERT(false);
 };
 
 template<>
-void Map::Relocation(Player* player, float x, float y, float z, float orientation)
+void Map::Relocation(Player* player, Position const& pos)
 {
     MANGOS_ASSERT(player);
 
     CellPair old_val = MaNGOS::ComputeCellPair(player->GetPositionX(), player->GetPositionY());
-    CellPair new_val = MaNGOS::ComputeCellPair(x, y);
+    CellPair new_val = MaNGOS::ComputeCellPair(pos.x, pos.y);
 
     Cell old_cell(old_val);
     Cell new_cell(new_val);
     bool same_cell = (new_cell == old_cell);
 
-    player->Relocate(x, y, z, orientation);
+    player->Relocate(pos);
 
     if( old_cell.DiffGrid(new_cell) || old_cell.DiffCell(new_cell) )
     {
@@ -862,18 +862,18 @@ void Map::Relocation(Player* player, float x, float y, float z, float orientatio
 };
 
 template<>
-void Map::Relocation(Creature* creature, float x, float y, float z, float orientation)
+void Map::Relocation(Creature* creature, Position const& pos)
 {
     MANGOS_ASSERT(CheckGridIntegrity(creature,false));
 
 //    Cell old_cell = creature->GetCurrentCell();
-    Cell new_cell(MaNGOS::ComputeCellPair(x, y));
+    Cell new_cell(MaNGOS::ComputeCellPair(pos.x, pos.y));
 
     // do move or do move to respawn or remove creature if previous all fail
     if (CreatureCellRelocation(creature,new_cell))
     {
         // update pos
-        creature->Relocate(x, y, z, orientation);
+        creature->Relocate(pos);
         creature->OnRelocated();
     }
     // if creature can't be move in new cell/grid (not loaded) move it to repawn cell/grid
@@ -888,17 +888,17 @@ void Map::Relocation(Creature* creature, float x, float y, float z, float orient
 };
 
 template<>
-void Map::Relocation(GameObject* go, float x, float y, float z, float orientation)
+void Map::Relocation(GameObject* go, Position const& pos)
 {
     MANGOS_ASSERT(go);
 
     CellPair old_val = MaNGOS::ComputeCellPair(go->GetPositionX(), go->GetPositionY());
-    CellPair new_val = MaNGOS::ComputeCellPair(x, y);
+    CellPair new_val = MaNGOS::ComputeCellPair(pos.x, pos.y);
 
     Cell old_cell(old_val);
     Cell new_cell(new_val);
 
-    go->Relocate(x, y, z, orientation);
+    go->Relocate(pos);
 
     if (old_cell != new_cell)
     {
@@ -927,7 +927,7 @@ void Map::Relocation(GameObject* go, float x, float y, float z, float orientatio
 
 void Map::CreatureRelocation(Creature* object, float x, float y, float z, float orientation)
 {
-    Relocation(object, x, y, z, orientation);
+    Relocation(object, Position(x, y, z, orientation, object->GetPhaseMask()));
 };
 
 bool Map::CreatureCellRelocation(Creature *c, Cell new_cell)
@@ -957,10 +957,9 @@ bool Map::CreatureCellRelocation(Creature *c, Cell new_cell)
 
 bool Map::CreatureRespawnRelocation(Creature *c)
 {
-    float resp_x, resp_y, resp_z, resp_o;
-    c->GetRespawnCoord(resp_x, resp_y, resp_z, &resp_o);
+    WorldLocation loc = c->GetRespawnCoord();
 
-    CellPair resp_val = MaNGOS::ComputeCellPair(resp_x, resp_y);
+    CellPair resp_val = MaNGOS::ComputeCellPair(loc.x, loc.y);
     Cell resp_cell(resp_val);
 
     c->CombatStop();
@@ -971,7 +970,7 @@ bool Map::CreatureRespawnRelocation(Creature *c)
     // teleport it to respawn point (like normal respawn if player see)
     if(CreatureCellRelocation(c,resp_cell))
     {
-        c->Relocate(resp_x, resp_y, resp_z, resp_o);
+        c->Relocate(loc);
         c->GetMotionMaster()->Initialize();                 // prevent possible problems with default move generators
         c->OnRelocated();
         return true;

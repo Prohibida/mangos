@@ -1124,7 +1124,8 @@ ObjectLockType& WorldObject::GetLock(MapLockType _lockType)
     return GetMap() ? GetMap()->GetLock(_lockType) : sWorld.GetLock(_lockType);
 }
 
-void WorldObject::Relocate(WorldLocation const& location)
+// Attention! This method cannot must call while relocation to other map!
+void WorldObject::Relocate(Position const& location)
 {
     bool locationChanged    = !bool(location == m_position);
     bool orientationChanged = bool(fabs(location.o - m_position.o) > M_NULL_F);
@@ -1134,25 +1135,36 @@ void WorldObject::Relocate(WorldLocation const& location)
     if (isType(TYPEMASK_UNIT))
     {
         if (locationChanged)
-            ((Unit*)this)->m_movementInfo.ChangePosition(m_position.x, m_position.y, m_position.z, m_position.o);
+            ((Unit*)this)->m_movementInfo.ChangePosition(m_position);
         else if (orientationChanged)
             ((Unit*)this)->m_movementInfo.ChangeOrientation(m_position.o);
     }
 }
 
-void WorldObject::Relocate(float x, float y, float z, float orientation)
-{
-    Relocate(WorldLocation(GetMapId(), x, y, z, orientation));
-}
-
-void WorldObject::Relocate(float x, float y, float z)
-{
-    Relocate(x, y, z, GetOrientation());
-}
-
 void WorldObject::SetOrientation(float orientation)
 {
-    Relocate(WorldLocation(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ(), orientation));
+    Relocate(Position(GetPositionX(), GetPositionY(), GetPositionZ(), orientation, GetPhaseMask()));
+}
+
+void WorldObject::Relocate(WorldLocation const& location)
+{
+    if (location.HasMap() && GetMapId() != location.GetMapId())
+    {
+        if (sMapMgr.IsValidMAP(location.GetMapId()))
+        {
+            SetLocationMapId(location.GetMapId());
+            if (GetInstanceId() != location.GetInstanceId())
+            {
+                if (!sMapMgr.FindMap(location.GetMapId(),location.GetInstanceId()))
+                    DEBUG_LOG("WorldObject::Relocate %s try relocate to non-existance instance %u (map %u).", GetObjectGuid().GetString().c_str(),location.GetInstanceId(), location.GetMapId());
+                SetLocationInstanceId(location.GetInstanceId());
+            }
+        }
+        else
+            sLog.outError("WorldObject::Relocate %s try relocate to non-existance map %u!", GetObjectGuid().GetString().c_str(), location.GetMapId());
+    }
+
+    Relocate(Position(location));
 }
 
 uint32 WorldObject::GetZoneId() const

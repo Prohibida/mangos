@@ -699,8 +699,7 @@ bool Player::Create(uint32 guidlow, const std::string& name, uint8 race, uint8 c
     for (int i = 0; i < PLAYER_SLOTS_COUNT; ++i)
         m_items[i] = NULL;
 
-    SetLocationMapId(info->mapId);
-    Relocate(info->positionX,info->positionY,info->positionZ, info->orientation);
+    Relocate(WorldLocation(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation));
 
     SetMap(sMapMgr.CreateMap(info->mapId, this));
 
@@ -1916,7 +1915,7 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
             if (!(options & TELE_TO_NODELAY) && !map->PreloadGrid(loc.x, loc.y))
             {
                 // If loading grid not finished, delay teleport 5 map update ticks
-                AddEvent(new TeleportDelayEvent(*this, WorldLocation(loc.x, loc.y, loc.z, loc.orientation, loc.GetMapId(), map->GetInstanceId(), sWorld.getConfig(CONFIG_UINT32_REALMID)), options),
+                AddEvent(new TeleportDelayEvent(*this, WorldLocation(loc.GetMapId(), loc.x, loc.y, loc.z, loc.orientation, GetPhaseMask(), map->GetInstanceId(), sWorld.getConfig(CONFIG_UINT32_REALMID)), options),
                     5 * sWorld.getConfig(CONFIG_UINT32_INTERVAL_MAPUPDATE));
 
                 DEBUG_LOG("Player::TeleportTo grid (map %u, instance %u, X%f Y%f) not fully loaded, far teleport %s delayed.", loc.GetMapId(), map->GetInstanceId(), loc.x, loc.y, GetName());
@@ -16206,8 +16205,7 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
         else                                                // have start node, to it
         {
             sLog.outError("Character %u have too short taxi destination list, teleport to original node.",GetGUIDLow());
-            SetLocationMapId(nodeEntry->map_id);
-            Relocate(nodeEntry->x, nodeEntry->y, nodeEntry->z,0.0f);
+            Relocate(WorldLocation(nodeEntry->map_id, nodeEntry->x, nodeEntry->y, nodeEntry->z, 0.0f, GetPhaseMask()));
         }
 
         //we can be relocated from taxi and still have an outdated Map pointer!
@@ -20717,7 +20715,7 @@ void Player::SendInitialPacketsAfterAddToMap()
     SendItemDurations();                                    // must be after add to map
 
     // "Fake movement" in current point - maked only for grid activating (seems not need make special method for this)
-    GetMap()->Relocation(this, GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
+    GetMap()->Relocation(this, GetPosition());
 }
 
 void Player::SendUpdateToOutOfRangeGroupMembers()

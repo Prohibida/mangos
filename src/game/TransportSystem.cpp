@@ -99,16 +99,16 @@ void TransportBase::UpdateGlobalPositionOf(ObjectGuid const& passengerGuid, Posi
     {
         case TYPEID_GAMEOBJECT:
         case TYPEID_DYNAMICOBJECT:
-            m_owner->GetMap()->Relocation((GameObject*)passenger, g.x, g.y, g.z, g.o);
+            m_owner->GetMap()->Relocation((GameObject*)passenger, g);
             break;
         case TYPEID_UNIT:
-            m_owner->GetMap()->Relocation((Creature*)passenger, g.x, g.y, g.z, g.o);
+            m_owner->GetMap()->Relocation((Creature*)passenger, g);
             // If passenger is vehicle
             if (((Unit*)passenger)->IsVehicle())
                 ((Unit*)passenger)->GetVehicleKit()->UpdateGlobalPositions();
             break;
         case TYPEID_PLAYER:
-            m_owner->GetMap()->Relocation((Player*)passenger, g.x, g.y, g.z, g.o);
+            m_owner->GetMap()->Relocation((Player*)passenger, g);
             // If passenger is vehicle
             if (((Unit*)passenger)->IsVehicle())
                 ((Unit*)passenger)->GetVehicleKit()->UpdateGlobalPositions();

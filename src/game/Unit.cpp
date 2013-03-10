@@ -516,9 +516,9 @@ bool Unit::SetPosition(Position const& pos, bool teleport)
         RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_MOVE);
 
         if (GetTypeId() == TYPEID_PLAYER)
-            GetMap()->Relocation((Player*)this, pos.x, pos.y, pos.z, pos.orientation);
+            GetMap()->Relocation((Player*)this, pos);
         else
-            GetMap()->Relocation((Creature*)this, pos.x, pos.y, pos.z, pos.orientation);
+            GetMap()->Relocation((Creature*)this, pos);
     }
     else if (turn)
         SetOrientation(pos.orientation);
@@ -13260,7 +13260,7 @@ void Unit::NearTeleportTo(WorldLocation const& loc, uint32 options)
     else
     {
         ExitVehicle(true);
-        GetMap()->Relocation((Creature*)this, loc.x, loc.y, loc.z, loc.orientation);
+        GetMap()->Relocation((Creature*)this, loc);
         SendHeartBeat();
     }
 }

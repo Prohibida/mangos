@@ -112,7 +112,7 @@ void MapManager::LoadTransports()
         //If we someday decide to use the grid to track transports, here:
         Map* map = sMapMgr.CreateMap(loc.GetMapId(), t);
         t->SetMap(map);
-        map->Relocation((GameObject*)t, loc.x, loc.y, loc.z, loc.orientation);
+        map->Relocation((GameObject*)t, loc);
         map->Add((GameObject*)t);
         t->Start();
 
@@ -191,8 +191,8 @@ Transport::~Transport()
 
 bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, float ang, uint8 animprogress, uint16 dynamicLowValue)
 {
-    Relocate(x,y,z,ang);
-    // instance id and phaseMask isn't set to values different from std.
+    Relocate(WorldLocation(mapid, x, y, z, ang));
+    // FIXME - instance id and phaseMask isn't set to values different from std.
 
     if(!IsPositionValid())
     {
@@ -689,7 +689,7 @@ bool Transport::SetPosition(WorldLocation const& loc, bool teleport)
             oldMap->Remove((GameObject*)this, false);
             SetMap(newMap);
 
-            newMap->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
+            newMap->Relocation((GameObject*)this, loc);
             newMap->Add((GameObject*)this);
 
             // Transport inserted in current map ActiveObjects list
@@ -702,10 +702,10 @@ bool Transport::SetPosition(WorldLocation const& loc, bool teleport)
             DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::SetPosition %s teleported to (%f, %f, %f, %f)", GetObjectGuid().GetString().c_str(), loc.x, loc.y, loc.z, loc.orientation);
         }
         else if (!(GetPosition() == loc))
-            GetMap()->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
+            GetMap()->Relocation((GameObject*)this, loc);
     }
     else if (!(GetPosition() == loc))
-        GetMap()->Relocation((GameObject*)this, loc.x, loc.y, loc.z, loc.orientation);
+        GetMap()->Relocation((GameObject*)this, loc);
 
 
     return false;
