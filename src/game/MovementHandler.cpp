@@ -566,11 +566,7 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
 
                 // elevators also cause the client to send MOVEFLAG_ONTRANSPORT - just unmount if the guid can be found in the transport list
                 if (Transport* transport = sMapMgr.GetTransportByGuid(movementInfo.GetTransportGuid()))
-                {
-                    if (plMover->GetVehicleKit())
-                        plMover->GetVehicleKit()->RemoveAllPassengers();
                     transport->AddPassenger(plMover);
-                }
             }
         }
         else if (plMover->IsOnTransport())               // if we were on a transport, leave

@@ -632,7 +632,7 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
         void Update(uint32 update_diff, uint32 p_time) override;
         GameObjectInfo const* GetGOInfo() const;
 
-        bool IsTransport() const;
+        virtual bool IsTransport() const override;
         bool IsDynTransport() const;
 
         bool HasStaticDBSpawnData() const;                  // listed in `gameobject` table and have fixed in DB guid

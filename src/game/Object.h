@@ -78,6 +78,7 @@ class UpdateMask;
 class InstanceData;
 class TerrainInfo;
 class Transport;
+class TransportBase;
 class TransportInfo;
 
 typedef UNORDERED_MAP<ObjectGuid, UpdateData> UpdateDataMapType;
@@ -470,6 +471,9 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         bool IsBoarded() const { return m_transportInfo != NULL; }
         void SetTransportInfo(TransportInfo* transportInfo) { m_transportInfo = transportInfo; }
 
+        virtual bool IsTransport() const { return false; };
+        TransportBase* GetTransportBase();
+
         void Relocate(WorldLocation const& location);
         void Relocate(Position const& position);
         void SetOrientation(float orientation);
@@ -499,7 +503,7 @@ class MANGOS_DLL_SPEC WorldObject : public Object
             GetNearPoint(obj, x, y, z, bounding_radius, distance2d, GetOrientation() + angle);
         }
 
-        WorldLocation const& GetClosePoint(float bounding_radius, float distance2d = 0.0f, float angle = 0.0f, WorldObject const* obj = NULL)
+        WorldLocation GetClosePoint(float bounding_radius, float distance2d = 0.0f, float angle = 0.0f, WorldObject const* obj = NULL)
         {
             WorldLocation loc = GetPosition();
             GetNearPoint(obj, loc.x, loc.y, loc.z, bounding_radius, distance2d, loc.o + angle);

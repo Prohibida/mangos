@@ -1111,12 +1111,21 @@ const char* Map::GetMapName() const
     return i_mapEntry ? i_mapEntry->name[sWorld.GetDefaultDbcLocale()] : "UNNAMEDMAP\x0";
 }
 
-void Map::UpdateObjectVisibility( WorldObject* obj, Cell cell, CellPair cellpair)
+void UpdateObjectVisibilityWithHelper::operator() (WorldObject* object) const
+{
+    if (!object || !object->IsInWorld())
+        return;
+    m_obj->GetMap()->UpdateObjectVisibility(object, m_cell, m_cellpair);
+}
+
+void Map::UpdateObjectVisibility(WorldObject* obj, Cell cell, CellPair cellpair)
 {
     cell.SetNoCreate();
     MaNGOS::VisibleChangesNotifier notifier(*obj);
     TypeContainerVisitor<MaNGOS::VisibleChangesNotifier, WorldTypeMapContainer > player_notifier(notifier);
     cell.Visit(cellpair, player_notifier, *this, *obj, GetVisibilityDistance(obj));
+    if (obj->IsTransport() && obj->GetTransportBase() && obj->GetTransportBase()->HasPassengers())
+        obj->GetTransportBase()->CallForAllPassengers(UpdateObjectVisibilityWithHelper(obj, cell, cellpair));
 }
 
 void Map::SendInitSelf(Player* player )

@@ -23,6 +23,7 @@
 #include "Vehicle.h"
 #include "Unit.h"
 #include "CreatureAI.h"
+#include "Transports.h"
 #include "Util.h"
 #include "WorldPacket.h"
 #include "movement/MoveSpline.h"
@@ -599,8 +600,15 @@ void VehicleKit::Dismount(Unit* passenger, VehicleSeatEntry const* seatInfo)
     if (tRadius < 1.0f || tRadius > 10.0f)
         tRadius = 1.0f;
 
+    // FIXME temp method for unmount on transport
+    if (GetBase()->IsOnTransport())
+    {
+        passenger->Relocate(GetBase()->GetTransport()->GetPosition());
+        GetBase()->GetTransport()->AddPassenger(passenger);
+        passenger->m_movementInfo.ChangeTransportPosition(GetBase()->m_movementInfo.GetTransportPosition());
+    }
     // Check for tru dismount while grid unload
-    if (passenger->GetTypeId() != TYPEID_PLAYER && !GetBase()->GetMap()->IsLoaded(pos.x, pos.y))
+    else if (passenger->GetTypeId() != TYPEID_PLAYER && !GetBase()->GetMap()->IsLoaded(pos.x, pos.y))
     {
         passenger->Relocate(pos);
     }

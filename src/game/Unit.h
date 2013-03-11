@@ -2214,6 +2214,9 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         VehicleKitPtr GetVehicleKit() const { return m_pVehicleKit; }
         void RemoveVehicleKit();
 
+        virtual bool IsTransport() const override { return bool(GetVehicleKit()); };
+        TransportBase* GetTransportBase() { return (TransportBase*)(&*GetVehicleKit()); };
+
         VehicleEntry const* GetVehicleInfo() const;
         virtual bool IsVehicle() const override { return GetVehicleInfo() != NULL; }
         void SetVehicleId(uint32 entry);

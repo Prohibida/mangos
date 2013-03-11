@@ -2339,3 +2339,14 @@ bool WorldObject::IsOnTransport() const
 {
     return GetTransportInfo() && GetTransportInfo()->GetTransportGuid().IsMOTransport();
 }
+
+TransportBase* WorldObject::GetTransportBase()
+{
+    if (GetObjectGuid().IsMOTransport())
+        return ((Transport*)this)->GetTransportBase();
+    else if (GetObjectGuid().IsUnit())
+        return ((Unit*)this)->GetTransportBase();
+
+    return NULL;
+}
+

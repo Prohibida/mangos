@@ -32,6 +32,7 @@
 #include "CellImpl.h"
 #include "MapPersistentStateMgr.h"
 #include "Mail.h"
+#include "Transports.h"
 #include "Util.h"
 #include "SpellMgr.h"
 #ifdef _DEBUG_VMAPS
@@ -479,9 +480,15 @@ bool ChatHandler::HandleNamegoCommand(char* args)
         target->InterruptTaxiFlying();
 
         // before GM
-        float x, y, z;
-        m_session->GetPlayer()->GetClosePoint(x, y, z, target->GetObjectBoundingRadius());
-        target->TeleportTo(m_session->GetPlayer()->GetMapId(), x, y, z, target->GetOrientation());
+
+        if (m_session->GetPlayer()->IsOnTransport())
+        {
+            target->TeleportTo(m_session->GetPlayer()->GetTransport()->GetPosition(), TELE_TO_NODELAY);
+            m_session->GetPlayer()->GetTransport()->AddPassenger(target);
+            target->m_movementInfo.ChangeTransportPosition(m_session->GetPlayer()->m_movementInfo.GetTransportPosition());
+        }
+        else
+            target->TeleportTo(m_session->GetPlayer()->GetClosePoint(target->GetObjectBoundingRadius()), TELE_TO_NODELAY);
     }
     else
     {

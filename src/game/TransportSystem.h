@@ -104,6 +104,8 @@ class MANGOS_DLL_DECL TransportBase
 
         virtual Position const& CalculateGlobalPositionOf(Position const& pos) const;
 
+        bool const HasPassengers() const { return (m_passengers.size() > 0); }
+
     protected:
         // Helper functions to add/ remove a passenger from the list
         void BoardPassenger(WorldObject* passenger, Position const& pos, int8 seat);
@@ -161,6 +163,16 @@ struct SendCurrentTransportDataWithHelper
     void operator()(WorldObject* object) const;
     UpdateData* m_data;
     Player* m_player;
+};
+
+struct UpdateObjectVisibilityWithHelper
+{
+    explicit UpdateObjectVisibilityWithHelper(WorldObject* obj, Cell cell, CellPair cellpair) : m_obj(obj), m_cell(cell), m_cellpair(cellpair)
+    {}
+    void operator()(WorldObject* object) const;
+    WorldObject* m_obj;
+    Cell m_cell;
+    CellPair m_cellpair;
 };
 
 #endif
