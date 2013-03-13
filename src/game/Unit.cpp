@@ -9940,17 +9940,17 @@ int32 Unit::ModifyPower(Powers power, int32 dVal)
 
 bool Unit::isVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, bool detect, bool inVisibleList, bool is3dDistance, bool skipLOScheck) const
 {
-    if(!u || !IsInMap(u))
+    if (!u)
         return false;
 
     // Always can see self
-    if (u==this)
+    if (u == this)
         return true;
 
     // player visible for other player if not logout and at same transport
     // including case when player is out of world
     bool at_same_transport =
-        GetTypeId() == TYPEID_PLAYER &&  u->GetTypeId()==TYPEID_PLAYER &&
+        GetTypeId() == TYPEID_PLAYER &&  u->GetTypeId() == TYPEID_PLAYER &&
         !((Player*)this)->GetSession()->PlayerLogout() && !((Player*)u)->GetSession()->PlayerLogout() &&
         !((Player*)this)->GetSession()->PlayerLoading() && !((Player*)u)->GetSession()->PlayerLoading() &&
         (IsOnTransport() && GetTransport() == u->GetTransport());
@@ -9963,9 +9963,20 @@ bool Unit::isVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, boo
     if (m_Visibility == VISIBILITY_REMOVE_CORPSE)
         return false;
 
+    // Unit always visible for own vehicle and vehicle always visible for passenger.
+    // FIXME - may be related from auras also!
+    if (GetVehicle() && u->IsVehicle() && u->GetObjectGuid() == GetVehicle()->GetBase()->GetObjectGuid())
+        return true;
+    if (IsVehicle() && u->GetVehicle() && u->GetVehicle()->GetBase()->GetObjectGuid() == GetObjectGuid())
+        return true;
+
+    // FIXME - temp override for accessories problem (wrong phase).
+    if (!IsInMap(u))
+        return false;
+
     Map& _map = *u->GetMap();
     // Grid dead/alive checks
-    if (u->GetTypeId()==TYPEID_PLAYER)
+    if (u->GetTypeId() == TYPEID_PLAYER)
     {
         // non visible at grid for any stealth state
         if(!IsVisibleInGridForPlayer((Player *)u))

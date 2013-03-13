@@ -2192,6 +2192,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         // Movement info
         MovementInfo m_movementInfo;
+        MovementInfo const& GetMovementInfo() const { return m_movementInfo; };
 
         // Transports
         float GetTransOffsetX() const { return m_movementInfo.GetTransportPos()->x; }

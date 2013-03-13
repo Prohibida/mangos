@@ -159,17 +159,16 @@ Unit* VehicleKit::GetPassenger(int8 seatId) const
 }
 
 // Helper function to undo the turning of the vehicle to calculate a relative position of the passenger when boarding
-Position const& VehicleKit::CalculateBoardingPositionOf(Position const& pos) const override
+Position VehicleKit::CalculateBoardingPositionOf(Position const& pos) const override
 {
-    Position l(pos);
-    NormalizeRotatedPosition(pos.x - GetBase()->GetPositionX(), pos.y - GetBase()->GetPositionY(), l.x, l.y);
-
-    l.z = pos.z - GetBase()->GetPositionZ();
-    l.o = MapManager::NormalizeOrientation(pos.o - GetBase()->GetOrientation());
-    return l;
+    Position posl = pos;
+    NormalizeRotatedPosition(pos.x - GetBase()->GetPositionX(), pos.y - GetBase()->GetPositionY(), posl.x, posl.y);
+    posl.z = pos.z - GetBase()->GetPositionZ();
+    posl.o = MapManager::NormalizeOrientation(pos.o - GetBase()->GetOrientation());
+    return posl;
 }
 
-Position const& VehicleKit::CalculateSeatPositionOf(VehicleSeatEntry const* seatInfo) const
+Position VehicleKit::CalculateSeatPositionOf(VehicleSeatEntry const* seatInfo) const
 {
     MANGOS_ASSERT(seatInfo);
 
@@ -221,7 +220,7 @@ bool VehicleKit::AddPassenger(Unit* passenger, int8 seatId)
     GetBase()->SetPhaseMask(passenger->GetPhaseMask(), true);
 
     // Calculate passengers local position
-    Position localPos =CalculateBoardingPositionOf(passenger->GetPosition());
+    Position localPos = CalculateBoardingPositionOf(passenger->GetPosition());
 
     BoardPassenger(passenger, localPos, seat->first);        // Use TransportBase to store the passenger
 
@@ -314,9 +313,7 @@ bool VehicleKit::AddPassenger(Unit* passenger, int8 seatId)
             ((Player*)passenger)->SetClientControl(GetBase(), 0);
     }
 
-    // need correct, position not normalized currently
     // Calculate passenger seat position (FIXME - requires correct calculation!)
-    // float lx, ly, lz, lo; - reuse variable definition from preview calculation
     Position seatpos = CalculateSeatPositionOf(seatInfo);
     passenger->GetMotionMaster()->MoveBoardVehicle(seatpos.x, seatpos.y, seatpos.z, seatpos.o,
         seatInfo->m_enterSpeed < M_NULL_F ? BASE_CHARGE_SPEED : seatInfo->m_enterSpeed,
@@ -511,6 +508,7 @@ void VehicleKit::InstallAccessory(VehicleAccessory const* accessory)
 
         SetDestination(accessory->m_offsetX, accessory->m_offsetY, accessory->m_offsetZ, accessory->m_offsetO, 0.0f, 0.0f);
         int32 seatId = accessory->seatId + 1;
+        summoned->SetPhaseMask(GetBase()->GetPhaseMask(), true);
         summoned->CastCustomSpell(GetBase(), SPELL_RIDE_VEHICLE_HARDCODED, &seatId, &seatId, NULL, true);
 
         SetDestination();

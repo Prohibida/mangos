@@ -771,7 +771,7 @@ void TransportKit::RemovePassenger(WorldObject* passenger)
 }
 
 // Helper function to undo the turning of the vehicle to calculate a relative position of the passenger when boarding
-Position const& TransportKit::CalculateBoardingPositionOf(Position const& pos) const override
+Position TransportKit::CalculateBoardingPositionOf(Position const& pos) const override
 {
     Position l(pos);
     NormalizeRotatedPosition(pos.x - GetBase()->GetPositionX(), pos.y - GetBase()->GetPositionY(), l.x, l.y);

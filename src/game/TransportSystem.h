@@ -72,6 +72,9 @@ class MANGOS_DLL_DECL TransportInfo
         Position const& GetLocalPosition() const { return m_localPosition; }
 
     private:
+        virtual Position CalculateBoardingPositionOf(Position const& pos) const { return Position(); };
+
+    private:
         WorldObject* m_owner;                               ///< Passenger
         TransportBase* m_transport;                         ///< Transporter
         Position m_localPosition;
