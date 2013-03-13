@@ -162,7 +162,7 @@ uint32 WorldLocation::GetZoneId() const
 
 float WorldLocation::GetDistance(WorldLocation const& loc) const
 {
-    return (!HasMap() || !loc.HasMap() || (GetMapId() == loc.GetMapId() && GetInstanceId() == loc.GetInstanceId())) ?
+    return (!HasMap() || !loc.HasMap() || ((GetMapId() == loc.GetMapId()) && (GetInstanceId() == loc.GetInstanceId()))) ?
         ((Position)*this).GetDistance((Position)loc) :
         MAX_VISIBILITY_DISTANCE + 1.0f;
 };

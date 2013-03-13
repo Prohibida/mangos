@@ -135,7 +135,7 @@ void TransportBase::NormalizeRotatedPosition(float rx, float ry, float& lx, floa
 }
 
 // Calculate a global position of local positions based on this transporter
-Position const& TransportBase::CalculateGlobalPositionOf(Position const& pos) const
+Position TransportBase::CalculateGlobalPositionOf(Position const& pos) const
 {
     Position g(pos);
     RotateLocalPosition(pos.x, pos.y, g.x, g.y);

@@ -9940,7 +9940,7 @@ int32 Unit::ModifyPower(Powers power, int32 dVal)
 
 bool Unit::isVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, bool detect, bool inVisibleList, bool is3dDistance, bool skipLOScheck) const
 {
-    if (!u)
+    if (!u || !IsInMap(u))
         return false;
 
     // Always can see self
@@ -9969,10 +9969,6 @@ bool Unit::isVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, boo
         return true;
     if (IsVehicle() && u->GetVehicle() && u->GetVehicle()->GetBase()->GetObjectGuid() == GetObjectGuid())
         return true;
-
-    // FIXME - temp override for accessories problem (wrong phase).
-    if (!IsInMap(u))
-        return false;
 
     Map& _map = *u->GetMap();
     // Grid dead/alive checks

@@ -105,7 +105,7 @@ class MANGOS_DLL_DECL TransportBase
         void RotateLocalPosition(float lx, float ly, float& rx, float& ry) const;
         void NormalizeRotatedPosition(float rx, float ry, float& lx, float& ly) const;
 
-        virtual Position const& CalculateGlobalPositionOf(Position const& pos) const;
+        virtual Position CalculateGlobalPositionOf(Position const& pos) const;
 
         bool const HasPassengers() const { return (m_passengers.size() > 0); }
 
