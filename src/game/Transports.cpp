@@ -484,17 +484,37 @@ void Transport::MoveToNextWayPoint()
     if (m_next == m_WayPoints.end())
         m_next = m_WayPoints.begin();
 }
-bool Transport::AddPassenger(WorldObject* passenger)
+bool Transport::AddPassenger(WorldObject* passenger, Position const& transportPos)
 {
-    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Passenger %s boarded transport %s", passenger->GetObjectGuid().GetString().c_str(), GetName());
-    GetTransportKit()->AddPassenger(passenger);
+    GetTransportKit()->AddPassenger(passenger, transportPos);
+    if (passenger->isType(TYPEMASK_UNIT))
+    {
+        GroupPetList m_groupPets = ((Unit*)passenger)->GetPets();
+        if (!m_groupPets.empty())
+        {
+            for (GroupPetList::const_iterator itr = m_groupPets.begin(); itr != m_groupPets.end(); ++itr)
+                if (Pet* _pet = GetMap()->GetPet(*itr))
+                    if (_pet && _pet->IsInWorld())
+                        GetTransportKit()->AddPassenger(_pet, transportPos);
+        }
+    }
     return true;
 }
 
 bool Transport::RemovePassenger(WorldObject* passenger)
 {
     GetTransportKit()->RemovePassenger(passenger);
-    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Player %s removed from transport %s.", passenger->GetObjectGuid().GetString().c_str(), GetName());
+    if (passenger->isType(TYPEMASK_UNIT))
+    {
+        GroupPetList m_groupPets = ((Unit*)passenger)->GetPets();
+        if (!m_groupPets.empty())
+        {
+            for (GroupPetList::const_iterator itr = m_groupPets.begin(); itr != m_groupPets.end(); ++itr)
+                if (Pet* _pet = GetMap()->GetPet(*itr))
+                    if (_pet && _pet->IsInWorld())
+                        GetTransportKit()->RemovePassenger(_pet);
+        }
+    }
     return true;
 }
 
@@ -745,16 +765,21 @@ void TransportKit::Reset()
     m_isInitialized = true;
 }
 
-bool TransportKit::AddPassenger(WorldObject* passenger)
+bool TransportKit::AddPassenger(WorldObject* passenger, Position const& transportPos)
 {
-    // Calculate passengers local position
-    Position pos = CalculateBoardingPositionOf(passenger->GetPosition());
-    BoardPassenger(passenger, pos, -1);        // Use TransportBase to store the passenger
+    // Calculate passengers local position, if not provided
+    BoardPassenger(passenger, transportPos.IsEmpty() ? CalculateBoardingPositionOf(passenger->GetPosition()) : transportPos, -1);
+
+    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportKit::AddPassenger %s boarded on %s offset %f %f %f", 
+        passenger->GetObjectGuid().GetString().c_str(), GetBase()->GetObjectGuid().GetString().c_str(), transportPos.getX(), transportPos.getY(), transportPos.getZ());
 }
 
 void TransportKit::RemovePassenger(WorldObject* passenger)
 {
     UnBoardPassenger(passenger);
+
+    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Transport::RemovePassenger %s unboarded from  %s.", 
+        passenger->GetObjectGuid().GetString().c_str(), GetBase()->GetObjectGuid().GetString().c_str());
 }
 
 // Helper function to undo the turning of the vehicle to calculate a relative position of the passenger when boarding

@@ -7706,7 +7706,7 @@ bool ChatHandler::HandleTransportGoCommand(char* args)
     }
     float z = transport->GetPositionZ() +2.0f;
     HandleGoHelper(player, transport->GetMap()->GetId(), transport->GetPositionX(), transport->GetPositionY(), &z);
-    transport->AddPassenger(player);
+    transport->AddPassenger(player, Position());
 
     return true;
 }

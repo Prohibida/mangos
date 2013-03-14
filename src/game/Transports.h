@@ -44,7 +44,7 @@ class MANGOS_DLL_SPEC Transport : public GameObject
 
         bool SetPosition(WorldLocation const& loc, bool teleport);
 
-        bool AddPassenger(WorldObject* passenger);
+        bool AddPassenger(WorldObject* passenger, Position const& transportPos);
         bool RemovePassenger(WorldObject* passenger);
 
         void Start();
@@ -113,7 +113,7 @@ class  MANGOS_DLL_SPEC TransportKit : public TransportBase
 
         void Reset();
 
-        bool AddPassenger(WorldObject* passenger);
+        bool AddPassenger(WorldObject* passenger, Position const& transportPos);
         void RemovePassenger(WorldObject* passenger);
         void RemoveAllPassengers();
 

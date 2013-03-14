@@ -595,8 +595,7 @@ void VehicleKit::Dismount(Unit* passenger, VehicleSeatEntry const* seatInfo)
     if (GetBase()->IsOnTransport())
     {
         passenger->Relocate(GetBase()->GetTransport()->GetPosition());
-        GetBase()->GetTransport()->AddPassenger(passenger);
-        passenger->m_movementInfo.ChangeTransportPosition(GetBase()->m_movementInfo.GetTransportPosition());
+        GetBase()->GetTransport()->AddPassenger(passenger, GetBase()->GetTransportPosition());
     }
     // Check for tru dismount while grid unload
     else if (passenger->GetTypeId() != TYPEID_PLAYER && !GetBase()->GetMap()->IsLoaded(pos.x, pos.y))

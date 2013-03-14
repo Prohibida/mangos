@@ -483,9 +483,9 @@ bool ChatHandler::HandleNamegoCommand(char* args)
 
         if (m_session->GetPlayer()->IsOnTransport())
         {
-            target->TeleportTo(m_session->GetPlayer()->GetTransport()->GetPosition(), TELE_TO_NODELAY);
-            m_session->GetPlayer()->GetTransport()->AddPassenger(target);
-            target->m_movementInfo.ChangeTransportPosition(m_session->GetPlayer()->m_movementInfo.GetTransportPosition());
+            WorldLocation loc = m_session->GetPlayer()->GetTransport()->GetPosition();
+            target->TeleportTo(loc, TELE_TO_NODELAY);
+            m_session->GetPlayer()->GetTransport()->AddPassenger(target, loc.GetTransportPos());
         }
         else
             target->TeleportTo(m_session->GetPlayer()->GetClosePoint(target->GetObjectBoundingRadius()), TELE_TO_NODELAY);

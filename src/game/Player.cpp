@@ -15967,7 +15967,7 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
                 SetLocationMapId(transport->GetMapId());
                 // AddPassenger not used, becoze need add passenger in correct position on transport
                 Position t_pos = Position(fields[26].GetFloat(), fields[27].GetFloat(), fields[28].GetFloat(), fields[29].GetFloat());
-                transport->GetTransportKit()->BoardPassenger(this, t_pos, -1);
+                transport->AddPassenger(this, t_pos);
             }
 
             if (!MaNGOS::IsValidMapCoord(
