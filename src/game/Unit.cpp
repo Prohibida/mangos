@@ -13555,6 +13555,7 @@ void Unit::_ExitVehicle(bool forceDismount)
         GetVehicle()->RemovePassenger(this, !forceDismount);
     else
     {
+        ClearTransportData();
         m_movementInfo.ClearTransportData();
         m_movementInfo.RemoveMovementFlag(MOVEFLAG_ONTRANSPORT);
     }

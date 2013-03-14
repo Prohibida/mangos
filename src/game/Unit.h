@@ -757,13 +757,10 @@ class MovementInfo
 
         // Position manipulations
         Position const* GetPos() const { return &pos; }
-        void SetTransportData(ObjectGuid guid, float x, float y, float z, float o, uint32 time, int8 seat, VehicleSeatEntry const* seatInfo = NULL)
+        void SetTransportData(ObjectGuid guid, Position const& pos, uint32 time, int8 seat, VehicleSeatEntry const* seatInfo = NULL)
         {
             t_guid = guid;
-            t_pos.x = x;
-            t_pos.y = y;
-            t_pos.z = z;
-            t_pos.o = o;
+            t_pos = pos;
             t_time = time;
             t_seat = seat;
             t_seatInfo = seatInfo;
@@ -820,7 +817,7 @@ class MovementInfo
             fallTime   = targetInfo.fallTime;
             jump       = targetInfo.jump;
 
-            if (!t_guid)
+            if (!t_guid || (t_guid && t_guid == targetInfo.t_guid))
             {
                 moveFlags2 = targetInfo.moveFlags2;
                 t_guid     = targetInfo.t_guid;
@@ -2195,10 +2192,6 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         MovementInfo const& GetMovementInfo() const { return m_movementInfo; };
 
         // Transports
-        float GetTransOffsetX() const { return m_movementInfo.GetTransportPos()->x; }
-        float GetTransOffsetY() const { return m_movementInfo.GetTransportPos()->y; }
-        float GetTransOffsetZ() const { return m_movementInfo.GetTransportPos()->z; }
-        float GetTransOffsetO() const { return m_movementInfo.GetTransportPos()->o; }
         uint32 GetTransTime() const { return m_movementInfo.GetTransportTime(); }
         int8 GetTransSeat() const { return m_movementInfo.GetTransportSeat(); }
 

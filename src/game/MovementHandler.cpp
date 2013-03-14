@@ -570,10 +570,7 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
             }
         }
         else if (plMover->IsOnTransport())               // if we were on a transport, leave
-        {
             plMover->GetTransport()->RemovePassenger(plMover);
-            movementInfo.ClearTransportData();
-        }
 
         if (movementInfo.HasMovementFlag(MOVEFLAG_SWIMMING) != plMover->IsInWater())
         {
@@ -582,7 +579,9 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
         }
 
         plMover->SetPosition(movementInfo.GetPosition());
-        plMover->m_movementInfo.ClearTransportData();
+        if (plMover->IsOnTransport())
+            plMover->SetTransportPosition(movementInfo.GetTransportPosition());
+
         plMover->m_movementInfo = movementInfo;
 
         if((movementInfo.GetPos()->z < -500.0f) || (plMover->GetMapId() == 617 && movementInfo.GetPos()->z < 2.0f) || (plMover->GetMapId() == 572 && movementInfo.GetPos()->z < 20.0f)
@@ -622,6 +621,8 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
         {
             mover->m_movementInfo = movementInfo;
             mover->SetPosition(movementInfo.GetPosition());
+            if (mover->IsOnTransport())
+                mover->SetTransportPosition(movementInfo.GetTransportPosition());
         }
     }
 }

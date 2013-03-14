@@ -27,6 +27,8 @@
  * - Abstract storage of passengers (added by BoardPassenger, UnboardPassenger)
  */
 
+#include "Player.h"
+#include "Transports.h"
 #include "TransportSystem.h"
 #include "Unit.h"
 #include "Vehicle.h"
@@ -155,13 +157,22 @@ void TransportBase::BoardPassenger(WorldObject* passenger, Position const& pos, 
     MAPLOCK_WRITE(GetOwner(), MAP_LOCK_TYPE_MOVEMENT);
 
     // Insert our new passenger
-    m_passengers.insert(PassengerMap::value_type(passenger->GetObjectGuid(),TransportInfo(passenger, this, pos, seat)));
+    m_passengers.insert(PassengerMap::value_type(passenger->GetObjectGuid(),TransportInfo(*passenger, *this, pos, seat)));
 
     PassengerMap::iterator itr = m_passengers.find(passenger->GetObjectGuid());
     MANGOS_ASSERT(itr != m_passengers.end());
 
     // The passenger needs fast access to transportInfo
     passenger->SetTransportInfo(&itr->second);
+
+    // Add MI and other data only if successful boarded!
+    if (passenger->isType(TYPEMASK_UNIT))
+    {
+        ((Unit*)passenger)->m_movementInfo.ClearTransportData();
+        ((Unit*)passenger)->m_movementInfo.AddMovementFlag(MOVEFLAG_ONTRANSPORT);
+        ((Unit*)passenger)->m_movementInfo.SetTransportData(GetOwner()->GetObjectGuid(), pos, WorldTimer::getMSTime(), -1);
+    }
+    passenger->SetTransportPosition(pos);
 }
 
 void TransportBase::UnBoardPassenger(WorldObject* passenger)
@@ -169,15 +180,22 @@ void TransportBase::UnBoardPassenger(WorldObject* passenger)
     if (!passenger)
         return;
 
-    MAPLOCK_WRITE(GetOwner(), MAP_LOCK_TYPE_MOVEMENT);
+    // Cleanup movementinfo/data even his not boarded!
+    if (passenger->isType(TYPEMASK_UNIT))
+    {
+        ((Unit*)passenger)->m_movementInfo.ClearTransportData();
+        ((Unit*)passenger)->m_movementInfo.RemoveMovementFlag(MOVEFLAG_ONTRANSPORT);
+    }
+    passenger->ClearTransportData();
 
+    // Set passengers transportInfo to NULL
+    passenger->SetTransportInfo(NULL);
+
+    MAPLOCK_WRITE(GetOwner(), MAP_LOCK_TYPE_MOVEMENT);
     PassengerMap::iterator itr = m_passengers.find(passenger->GetObjectGuid());
 
     if (itr == m_passengers.end())
         return;
-
-    // Set passengers transportInfo to NULL
-    passenger->SetTransportInfo(NULL);
 
     // Delete transportInfo
     // Unboard finally
@@ -186,51 +204,115 @@ void TransportBase::UnBoardPassenger(WorldObject* passenger)
 
 /* **************************************** TransportInfo ****************************************/
 
-TransportInfo::TransportInfo(WorldObject* owner, TransportBase* transport, Position const& pos, int8 seat) :
+TransportInfo::TransportInfo(WorldObject& owner, TransportBase& transport, Position const& pos, int8 seat) :
     m_owner(owner),
     m_transport(transport),
-    m_localPosition(pos),
     m_seat(seat)
 {
-    MANGOS_ASSERT(owner && m_transport);
 }
 
 TransportInfo::TransportInfo(TransportInfo const& info) :
     m_owner(info.m_owner),
     m_transport(info.m_transport),
-    m_localPosition(info.m_localPosition),
     m_seat(info.m_seat)
 {
-    MANGOS_ASSERT(m_owner && m_transport);
 }
 
 void TransportInfo::SetLocalPosition(Position const& pos)
 {
-    m_localPosition = pos;
+    m_owner.SetTransportPosition(pos);
 
     // Update global position
-    m_transport->UpdateGlobalPositionOf(m_owner->GetObjectGuid(), pos);
+    m_transport.UpdateGlobalPositionOf(m_owner.GetObjectGuid(), pos);
 }
 
 TransportInfo::~TransportInfo()
 {
-    if (m_owner)
-        m_owner->SetTransportInfo(NULL);
+    m_owner.SetTransportInfo(NULL);
 }
 
 WorldObject* TransportInfo::GetTransport() const 
 {
-    return m_transport->GetOwner();
+    return m_transport.GetOwner();
 }
 
 ObjectGuid TransportInfo::GetTransportGuid() const
 {
-    return m_transport->GetOwner()->GetObjectGuid();
+    return m_transport.GetOwner()->GetObjectGuid();
 }
 
 bool TransportInfo::IsOnVehicle() const
 {
-    return m_transport->GetOwner()->GetTypeId() == TYPEID_PLAYER || m_transport->GetOwner()->GetTypeId() == TYPEID_UNIT;
+    return m_transport.GetOwner()->GetTypeId() == TYPEID_PLAYER || m_transport.GetOwner()->GetTypeId() == TYPEID_UNIT;
+}
+
+void NotifyMapChangeBegin::operator() (WorldObject* obj) const
+{
+    if (!obj)
+        return;
+
+    switch(obj->GetTypeId())
+    {
+        case TYPEID_GAMEOBJECT:
+        case TYPEID_DYNAMICOBJECT:
+            break;
+        case TYPEID_UNIT:
+            if (obj->GetObjectGuid().IsPet())
+                break;
+            // TODO Despawn creatures in old map
+            break;
+        case TYPEID_PLAYER:
+        {
+            Player* plr = (Player*)obj;
+            if (!plr)
+                return;
+            if (plr->isDead() && !plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
+                plr->ResurrectPlayer(1.0);
+            if (plr->GetSession() && m_oldloc.GetMapId() != m_loc.GetMapId())
+            {
+                WorldPacket data(SMSG_NEW_WORLD, 4);
+                data << uint32(plr->GetTransport()->GetTransportMapId());
+                plr->GetSession()->SendPacket(&data);
+            }
+            plr->TeleportTo(m_loc, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NODELAY);
+            break;
+        }
+        // TODO - make corpse moving.
+        case TYPEID_CORPSE:
+        default:
+            break;
+    }
+}
+
+void NotifyMapChangeEnd::operator() (WorldObject* obj) const
+{
+    if (!obj)
+        return;
+
+    switch(obj->GetTypeId())
+    {
+        case TYPEID_GAMEOBJECT:
+        case TYPEID_DYNAMICOBJECT:
+            break;
+        case TYPEID_UNIT:
+            // TODO Spawn creatures in new map
+            break;
+        case TYPEID_PLAYER:
+            break;
+        // TODO - make corpse moving.
+        case TYPEID_CORPSE:
+        default:
+            break;
+    }
+}
+
+void SendCurrentTransportDataWithHelper::operator() (WorldObject* object) const
+{
+    if (!object || !object->IsInWorld() || object->GetObjectGuid() == m_player->GetObjectGuid())
+        return;
+
+    if (m_player->HaveAtClient(object->GetObjectGuid()))
+        object->BuildCreateUpdateBlockForPlayer(m_data, m_player);
 }
 
 /*! @} */

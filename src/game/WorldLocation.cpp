@@ -77,7 +77,7 @@ WorldLocation::WorldLocation(WorldObject const& object)
 };
 
 WorldLocation::WorldLocation(uint32 _mapid, float _x, float _y, float _z, float _o, uint32 phaseMask, uint32 _instance, uint32 _realmid)
-    : Position(_x, _y, _z, _o, phaseMask), mapid(_mapid), instance(_instance), realmid(_realmid)
+    : Position(_x, _y, _z, _o, phaseMask), mapid(_mapid), instance(_instance), realmid(_realmid), m_Tpos(Position())
 {
     if (realmid == 0)
         SetRealmId(sWorld.getConfig(CONFIG_UINT32_REALMID));
@@ -117,30 +117,27 @@ void WorldLocation::SetOrientation(float value)
 
 WorldLocation& WorldLocation::operator = (WorldLocation const& loc)
 {
-
     //if (!IsValidMapCoord(loc))
     //    sLog.outError("WorldLocation::operator = try set invalid location!");
 
     mapid       = loc.mapid;
     instance    = loc.instance;
+    m_Tpos      = loc.m_Tpos;
     x           = loc.x;
     y           = loc.y;
     z           = loc.z;
     orientation = loc.orientation;
     m_phaseMask = loc.GetPhaseMask();
-
     return *this;
 }
 
 WorldLocation& WorldLocation::operator = (Position const& pos)
 {
-
     x           = pos.x;
     y           = pos.y;
     z           = pos.z;
     orientation = pos.orientation;
     m_phaseMask = pos.GetPhaseMask();
-
     return *this;
 }
 

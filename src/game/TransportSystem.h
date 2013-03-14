@@ -52,7 +52,7 @@ class TransportBase;
 class MANGOS_DLL_DECL TransportInfo
 {
     public:
-        explicit TransportInfo(WorldObject* owner, TransportBase* transport, Position const& pos, int8 seat);
+        explicit TransportInfo(WorldObject& owner, TransportBase& transport, Position const& pos, int8 seat);
         TransportInfo(TransportInfo const& info);
         ~TransportInfo();
 
@@ -69,15 +69,14 @@ class MANGOS_DLL_DECL TransportInfo
 
         // Get local position and seat
         uint8 GetTransportSeat() const { return m_seat; }
-        Position const& GetLocalPosition() const { return m_localPosition; }
+        Position const& GetLocalPosition() const { return m_owner.GetPosition().GetTransportPos(); }
 
     private:
         virtual Position CalculateBoardingPositionOf(Position const& pos) const { return Position(); };
 
     private:
-        WorldObject* m_owner;                               ///< Passenger
-        TransportBase* m_transport;                         ///< Transporter
-        Position m_localPosition;
+        WorldObject&   m_owner;                             ///< Passenger
+        TransportBase& m_transport;                         ///< Transporter
         int8 m_seat;
 };
 
@@ -109,11 +108,11 @@ class MANGOS_DLL_DECL TransportBase
 
         bool const HasPassengers() const { return (m_passengers.size() > 0); }
 
-    protected:
         // Helper functions to add/ remove a passenger from the list
         void BoardPassenger(WorldObject* passenger, Position const& pos, int8 seat);
         void UnBoardPassenger(WorldObject* passenger);
 
+    protected:
         WorldObject* m_owner;                               ///< The transporting unit
         PassengerMap m_passengers;                          ///< List of passengers and their transport-information
 

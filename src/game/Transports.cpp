@@ -750,24 +750,11 @@ bool TransportKit::AddPassenger(WorldObject* passenger)
     // Calculate passengers local position
     Position pos = CalculateBoardingPositionOf(passenger->GetPosition());
     BoardPassenger(passenger, pos, -1);        // Use TransportBase to store the passenger
-    if (passenger->isType(TYPEMASK_UNIT))
-    {
-        Unit* _passenger = (Unit*)passenger;
-        _passenger->m_movementInfo.ClearTransportData();
-        _passenger->m_movementInfo.AddMovementFlag(MOVEFLAG_ONTRANSPORT);
-        _passenger->m_movementInfo.SetTransportData(GetBase()->GetObjectGuid(), pos.x, pos.y, pos.z, pos.o, 0, -1);
-    }
 }
 
 void TransportKit::RemovePassenger(WorldObject* passenger)
 {
     UnBoardPassenger(passenger);
-    if (passenger->isType(TYPEMASK_UNIT))
-    {
-        Unit* _passenger = (Unit*)passenger;
-        _passenger->m_movementInfo.ClearTransportData();
-        _passenger->m_movementInfo.RemoveMovementFlag(MOVEFLAG_ONTRANSPORT);
-    }
 }
 
 // Helper function to undo the turning of the vehicle to calculate a relative position of the passenger when boarding
@@ -779,74 +766,5 @@ Position TransportKit::CalculateBoardingPositionOf(Position const& pos) const ov
     l.z = pos.z - GetBase()->GetPositionZ();
     l.o = MapManager::NormalizeOrientation(pos.o - GetBase()->GetOrientation());
     return l;
-}
-
-void NotifyMapChangeBegin::operator() (WorldObject* obj) const
-{
-    if (!obj)
-        return;
-
-    switch(obj->GetTypeId())
-    {
-        case TYPEID_GAMEOBJECT:
-        case TYPEID_DYNAMICOBJECT:
-            break;
-        case TYPEID_UNIT:
-            if (obj->GetObjectGuid().IsPet())
-                break;
-            // TODO Despawn creatures in old map
-            break;
-        case TYPEID_PLAYER:
-        {
-            Player* plr = (Player*)obj;
-            if (!plr)
-                return;
-            if (plr->isDead() && !plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
-                plr->ResurrectPlayer(1.0);
-            if (plr->GetSession() && m_oldloc.GetMapId() != m_loc.GetMapId())
-            {
-                WorldPacket data(SMSG_NEW_WORLD, 4);
-                data << uint32(plr->GetTransport()->GetTransportMapId());
-                plr->GetSession()->SendPacket(&data);
-            }
-            plr->TeleportTo(m_loc, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NODELAY);
-            break;
-        }
-        // TODO - make corpse moving.
-        case TYPEID_CORPSE:
-        default:
-            break;
-    }
-}
-
-void NotifyMapChangeEnd::operator() (WorldObject* obj) const
-{
-    if (!obj)
-        return;
-
-    switch(obj->GetTypeId())
-    {
-        case TYPEID_GAMEOBJECT:
-        case TYPEID_DYNAMICOBJECT:
-            break;
-        case TYPEID_UNIT:
-            // TODO Spawn creatures in new map
-            break;
-        case TYPEID_PLAYER:
-            break;
-        // TODO - make corpse moving.
-        case TYPEID_CORPSE:
-        default:
-            break;
-    }
-}
-
-void SendCurrentTransportDataWithHelper::operator() (WorldObject* object) const
-{
-    if (!object || !object->IsInWorld() || object->GetObjectGuid() == m_player->GetObjectGuid())
-        return;
-
-    if (m_player->HaveAtClient(object->GetObjectGuid()))
-        object->BuildCreateUpdateBlockForPlayer(m_data, m_player);
 }
 

@@ -490,10 +490,13 @@ class MANGOS_DLL_SPEC WorldObject : public Object
 
         virtual bool IsOnTransport() const;
         virtual Transport* GetTransport() const;
-        virtual float GetTransOffsetX() const { return 0.0f; }
-        virtual float GetTransOffsetY() const { return 0.0f; }
-        virtual float GetTransOffsetZ() const { return 0.0f; }
-        virtual float GetTransOffsetO() const { return 0.0f; }
+        float GetTransOffsetX() const { return m_position.GetTransportPos().getX(); }
+        float GetTransOffsetY() const { return m_position.GetTransportPos().getY(); }
+        float GetTransOffsetZ() const { return m_position.GetTransportPos().getZ(); }
+        float GetTransOffsetO() const { return m_position.GetTransportPos().getO(); }
+        Position const& GetTransportPosition() const { return m_position.GetTransportPos(); };
+        void SetTransportPosition(Position const& pos) { m_position.SetTransportPosition(pos); };
+        void ClearTransportData() { m_position.ClearTransportData(); };
 
         void GetNearPoint2D( float &x, float &y, float distance, float absAngle) const;
         void GetNearPoint(WorldObject const* searcher, float &x, float &y, float &z, float searcher_bounding_radius, float distance2d, float absAngle) const;

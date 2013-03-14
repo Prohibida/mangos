@@ -1796,16 +1796,13 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
 
     // if we were on a transport, leave
     if (!(options & TELE_TO_NOT_LEAVE_TRANSPORT) && IsOnTransport())
-    {
         GetTransport()->RemovePassenger(this);
-        m_movementInfo.ClearTransportData();
-    }
-
+/*
     if (GetVehicleKit())
         GetVehicleKit()->RemoveAllPassengers();
 
     ExitVehicle(true);
-
+*/
     // The player was ported to another map and looses the duel immediately.
     // We have to perform this check before the teleport, otherwise the
     // ObjectAccessor won't find the flag.
@@ -15839,6 +15836,7 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
 
         transGUID = 0;
         m_movementInfo.ClearTransportData();
+        ClearTransportData();
     }
 
     _LoadBGData(holder->GetResult(PLAYER_LOGIN_QUERY_LOADBGDATA));
@@ -15967,8 +15965,9 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
             {
                 Relocate(transport->GetPosition());
                 SetLocationMapId(transport->GetMapId());
-                transport->AddPassenger(this);
-                m_movementInfo.SetTransportData(transportGuid, fields[26].GetFloat(), fields[27].GetFloat(), fields[28].GetFloat(), fields[29].GetFloat(), 0, -1);
+                // AddPassenger not used, becoze need add passenger in correct position on transport
+                Position t_pos = Position(fields[26].GetFloat(), fields[27].GetFloat(), fields[28].GetFloat(), fields[29].GetFloat());
+                transport->GetTransportKit()->BoardPassenger(this, t_pos, -1);
             }
 
             if (!MaNGOS::IsValidMapCoord(
@@ -15990,9 +15989,10 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
             sLog.outError("%s have problems with transport guid (%u). Teleport to default race/class locations.",
                 guid.GetString().c_str(), transGUID);
 
-            RelocateToHomebind();
+            ClearTransportData();
             m_movementInfo.ClearTransportData();
             transGUID = 0;
+            RelocateToHomebind();
         }
     }
 
