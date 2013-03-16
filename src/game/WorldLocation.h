@@ -35,11 +35,7 @@ struct MANGOS_DLL_SPEC Location : public Vector3
         : Vector3(x, y, z), orientation(o)
     {}
 
-    Location(const Vector3& v) 
-        : Vector3(v), orientation(0.0f)
-    {}
-
-    Location(const Vector3& v, float o) 
+    Location(const Vector3& v, float o = 0.0f)
         : Vector3(v), orientation(o)
     {}
 
@@ -72,31 +68,27 @@ struct MANGOS_DLL_SPEC Location : public Vector3
 struct MANGOS_DLL_SPEC Position : public Location
 {
     Position() 
-        : Location(), coord_x(x), coord_y(y), coord_z(z), m_phaseMask(PHASEMASK_NORMAL)
+        : Location(), m_phaseMask(PHASEMASK_NORMAL)
     {};
 
     explicit Position(float _x, float _y, float _z, float _o = 0.0f)
-        : Location(_x, _y, _z, _o), coord_x(x), coord_y(y), coord_z(z), m_phaseMask(PHASEMASK_NORMAL)
+        : Location(_x, _y, _z, _o), m_phaseMask(PHASEMASK_NORMAL)
     {};
 
     explicit Position(float _x, float _y, float _z, float _o, uint32 phaseMask)
-        : Location(_x, _y, _z, _o), coord_x(x), coord_y(y), coord_z(z), m_phaseMask(phaseMask)
+        : Location(_x, _y, _z, _o), m_phaseMask(phaseMask)
     {};
 
     Position(Position const &pos)
-        : Location(pos.x, pos.y, pos.z, pos.orientation), coord_x(x), coord_y(y), coord_z(z), m_phaseMask(pos.GetPhaseMask())
+        : Location(pos.x, pos.y, pos.z, pos.orientation), m_phaseMask(pos.GetPhaseMask())
     {}
 
     Position(Position const &pos, uint32 phaseMask)
-        : Location(pos.x, pos.y, pos.z, pos.orientation), coord_x(x), coord_y(y), coord_z(z), m_phaseMask(phaseMask)
+        : Location(pos.x, pos.y, pos.z, pos.orientation), m_phaseMask(phaseMask)
     {}
 
     virtual ~Position()
     {};
-
-    float& coord_x;
-    float& coord_y;
-    float& coord_z;
 
     uint32 m_phaseMask;
 
@@ -131,10 +123,10 @@ struct MANGOS_DLL_SPEC WorldLocation : public Position
         : Position(loc.x, loc.y, loc.z, loc.orientation, loc.GetPhaseMask()), mapid(loc.mapid), instance(loc.instance), realmid(loc.realmid), m_Tpos(loc.m_Tpos)
     {}
 
-    WorldLocation(WorldObject const& object);
-
     virtual ~WorldLocation() 
     {};
+
+    static WorldLocation const Null;
 
     bool operator == (WorldLocation const& loc) const;
 

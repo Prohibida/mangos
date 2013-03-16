@@ -71,10 +71,7 @@ float Position::GetDistance(Position const& pos) const
         MAX_VISIBILITY_DISTANCE + 1.0f;
 };
 
-WorldLocation::WorldLocation(WorldObject const& object)
-    : WorldLocation(object.GetPosition())
-{
-};
+WorldLocation const WorldLocation::Null = WorldLocation();
 
 WorldLocation::WorldLocation(uint32 _mapid, float _x, float _y, float _z, float _o, uint32 phaseMask, uint32 _instance, uint32 _realmid)
     : Position(_x, _y, _z, _o, phaseMask), mapid(_mapid), instance(_instance), realmid(_realmid), m_Tpos(Position())
@@ -88,7 +85,7 @@ bool WorldLocation::IsValidMapCoord(WorldLocation const& loc)
     if (loc.HasMap())
         return MapManager::IsValidMapCoord(loc);
     else
-        return MaNGOS::IsValidMapCoord(loc.coord_x, loc.coord_y, loc.coord_z, loc.orientation);
+        return MaNGOS::IsValidMapCoord(loc.getX(), loc.getY(), loc.getZ(), loc.getO());
 }
 
 bool WorldLocation::operator == (WorldLocation const& loc) const
@@ -146,7 +143,7 @@ uint32 WorldLocation::GetAreaId() const
     if (!HasMap())
         return 0;
 
-    return sTerrainMgr.GetAreaId(GetMapId(), coord_x, coord_y, coord_z);
+    return sTerrainMgr.GetAreaId(GetMapId(), getX(), getY(), getZ());
 }
 
 uint32 WorldLocation::GetZoneId() const
@@ -154,7 +151,7 @@ uint32 WorldLocation::GetZoneId() const
     if (!HasMap())
         return 0;
 
-    return sTerrainMgr.GetZoneId(GetMapId(), coord_x, coord_y, coord_z);
+    return sTerrainMgr.GetZoneId(GetMapId(), getX(), getY(), getZ());
 }
 
 float WorldLocation::GetDistance(WorldLocation const& loc) const
