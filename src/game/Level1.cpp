@@ -529,7 +529,6 @@ bool ChatHandler::HandleGonameCommand(char* args)
         return false;
     }
 
-
     if (target)
     {
         // check online security
@@ -619,7 +618,7 @@ bool ChatHandler::HandleGonameCommand(char* args)
         if (needReportToTarget(target))
             ChatHandler(target).PSendSysMessage(LANG_APPEARING_TO, GetNameLink().c_str());
 
-        target->InterruptTaxiFlying();
+        _player->InterruptTaxiFlying();
 
         // to point to see at target with same orientation
         float x, y, z;
