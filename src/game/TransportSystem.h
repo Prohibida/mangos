@@ -177,5 +177,17 @@ struct UpdateObjectVisibilityWithHelper
     CellPair m_cellpair;
 };
 
+struct UpdateVisibilityOfWithHelper
+{
+    explicit UpdateVisibilityOfWithHelper(Player& player, GuidSet& guidSet, UpdateData& data, WorldObjectSet& visibleNow) 
+        : m_player(player), m_guidSet(guidSet), i_data(data), i_visibleNow(visibleNow)
+    {}
+    void operator()(WorldObject* object) const;
+    Player&  m_player;
+    GuidSet& m_guidSet;
+    UpdateData& i_data;
+    WorldObjectSet& i_visibleNow;
+};
+
 #endif
 /*! @} */

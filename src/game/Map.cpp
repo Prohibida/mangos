@@ -1113,8 +1113,9 @@ const char* Map::GetMapName() const
 
 void UpdateObjectVisibilityWithHelper::operator() (WorldObject* object) const
 {
-    if (!object || !object->IsInWorld())
+    if (!object)
         return;
+
     m_obj->GetMap()->UpdateObjectVisibility(object, m_cell, m_cellpair);
 }
 

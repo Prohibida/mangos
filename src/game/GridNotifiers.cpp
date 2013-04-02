@@ -41,6 +41,10 @@ void VisibleNotifier::Notify()
 {
     Player& player = *i_camera.GetOwner();
     // at this moment i_clientGUIDs have guids that not iterate at grid level checks
+    // but exist one case when this possible and object not out of range: transports
+    // FIXME - need remove this hack after full repair per-grid visibility on transport!
+    if (Transport* transport = player.GetTransport())
+        transport->GetTransportBase()->CallForAllPassengers(UpdateVisibilityOfWithHelper(player, i_clientGUIDs, i_data, i_visibleNow));
 
     // generate outOfRange for not iterate objects
     for (GuidSet::iterator itr = i_clientGUIDs.begin(); itr != i_clientGUIDs.end(); ++itr)

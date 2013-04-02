@@ -308,11 +308,26 @@ void NotifyMapChangeEnd::operator() (WorldObject* obj) const
 
 void SendCurrentTransportDataWithHelper::operator() (WorldObject* object) const
 {
-    if (!object || !object->IsInWorld() || object->GetObjectGuid() == m_player->GetObjectGuid())
+    if (!object || 
+        object->GetObjectGuid() == m_player->GetObjectGuid() ||
+        !m_player->HaveAtClient(object->GetObjectGuid()))
         return;
 
-    if (m_player->HaveAtClient(object->GetObjectGuid()))
-        object->BuildCreateUpdateBlockForPlayer(m_data, m_player);
+    object->BuildCreateUpdateBlockForPlayer(m_data, m_player);
+}
+
+void UpdateVisibilityOfWithHelper::operator() (WorldObject* object) const
+{
+    if (!object)
+        return;
+
+    if (m_guidSet.find(object->GetObjectGuid()) != m_guidSet.end())
+    {
+        if (object->GetTypeId() == TYPEID_PLAYER)
+            ((Player*)object)->UpdateVisibilityOf(object, &m_player);
+        m_player.UpdateVisibilityOf(&m_player, object, i_data, i_visibleNow);
+        m_guidSet.erase(object->GetObjectGuid());
+    }
 }
 
 /*! @} */

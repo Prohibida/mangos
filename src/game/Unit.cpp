@@ -9940,42 +9940,30 @@ int32 Unit::ModifyPower(Powers power, int32 dVal)
 
 bool Unit::isVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, bool detect, bool inVisibleList, bool is3dDistance, bool skipLOScheck) const
 {
-    if (!u || !IsInMap(u))
+    if (!u)
         return false;
 
     // Always can see self
     if (u == this)
         return true;
 
-    // player visible for other player if not logout and at same transport
-    // including case when player is out of world
-    bool at_same_transport =
-        GetTypeId() == TYPEID_PLAYER &&  u->GetTypeId() == TYPEID_PLAYER &&
-        !((Player*)this)->GetSession()->PlayerLogout() && !((Player*)u)->GetSession()->PlayerLogout() &&
-        !((Player*)this)->GetSession()->PlayerLoading() && !((Player*)u)->GetSession()->PlayerLoading() &&
-        (IsOnTransport() && GetTransport() == u->GetTransport());
+    bool at_same_transport = (IsBoarded() && (GetTransportInfo() == u->GetTransportInfo()));
 
     // not in world
-    if(!at_same_transport && (!IsInWorld() || !u->IsInWorld()))
+    if (!at_same_transport && (!IsInMap(u) || !IsInWorld() || !u->IsInWorld()))
         return false;
 
     // forbidden to seen (while Removing corpse)
     if (m_Visibility == VISIBILITY_REMOVE_CORPSE)
         return false;
 
-    // Unit always visible for own vehicle and vehicle always visible for passenger.
-    // FIXME - may be related from auras also!
-    if (GetVehicle() && u->IsVehicle() && u->GetObjectGuid() == GetVehicle()->GetBase()->GetObjectGuid())
-        return true;
-    if (IsVehicle() && u->GetVehicle() && u->GetVehicle()->GetBase()->GetObjectGuid() == GetObjectGuid())
-        return true;
-
     Map& _map = *u->GetMap();
+
     // Grid dead/alive checks
     if (u->GetTypeId() == TYPEID_PLAYER)
     {
         // non visible at grid for any stealth state
-        if(!IsVisibleInGridForPlayer((Player *)u))
+        if (!IsVisibleInGridForPlayer((Player *)u))
             return false;
 
         // if player is dead then he can't detect anyone in any cases
@@ -9996,10 +9984,11 @@ bool Unit::isVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, boo
         if (!IsWithinDistInMap(viewPoint,World::GetMaxVisibleDistanceInFlight()+(inVisibleList ? World::GetVisibleObjectGreyDistance() : 0.0f), is3dDistance))
             return false;
     }
-    else if(!at_same_transport)                             // distance for show player/pet/creature (no transport case)
+    else if (!at_same_transport)                             // distance for show player/pet/creature (no transport case)
     {
         // Any units far than max visible distance for viewer or not in our map are not visible too
-        if (!IsWithinDistInMap(viewPoint, _map.GetVisibilityDistance() + (inVisibleList ? World::GetVisibleUnitGreyDistance() : 0.0f), is3dDistance))
+        // FIXME Visibility distance doubled for on-transport measurement
+        if (!IsWithinDistInMap(viewPoint, _map.GetVisibilityDistance() + (inVisibleList ? World::GetVisibleUnitGreyDistance() : 0.0f) + (IsBoarded() ? _map.GetVisibilityDistance() : 0.0f), is3dDistance))
             return false;
     }
 
@@ -10097,6 +10086,10 @@ bool Unit::isVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, boo
 
     // GM invisibility checks early, invisibility if any detectable, so if not stealth then visible
     if (m_Visibility != VISIBILITY_GROUP_STEALTH)
+        return true;
+
+    // Check same transport/vehicle before stealth check
+    if (IsBoarded() && GetTransportInfo() == u->GetTransportInfo())
         return true;
 
     // NOW ONLY STEALTH CASE
