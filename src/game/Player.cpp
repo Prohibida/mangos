@@ -19367,13 +19367,13 @@ void Player::HandleStealthedUnitsDetection()
             {
                 ObjectGuid i_guid = (*i)->GetObjectGuid();
                 (*i)->SendCreateUpdateToPlayer(this);
-                GetClientGuids().insert(i_guid);
+                AddClientGuid(i_guid);
 
                 DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "%s is detected in stealth by player %u. Distance = %f",i_guid.GetString().c_str(),GetGUIDLow(),GetDistance(*i));
 
                 // target aura duration for caster show only if target exist at caster client
                 // send data at target visibility change (adding to client)
-                if ((*i)!=this && (*i)->isType(TYPEMASK_UNIT))
+                if ((*i) != this && (*i)->isType(TYPEMASK_UNIT))
                     SendAurasForTarget(*i);
             }
         }
@@ -19382,7 +19382,7 @@ void Player::HandleStealthedUnitsDetection()
             if (hasAtClient)
             {
                 (*i)->DestroyForPlayer(this);
-                GetClientGuids().erase((*i)->GetObjectGuid());
+                RemoveClientGuid((*i)->GetObjectGuid());
             }
         }
     }
@@ -20443,8 +20443,26 @@ bool Player::IsVisibleGloballyFor(Player* u) const
 bool Player::HaveAtClient(ObjectGuid const& guid) const
 {
     return  guid == GetObjectGuid() || 
-            m_clientGUIDs.find(guid) != m_clientGUIDs.end() ||
-            (IsBoarded() && GetTransportInfo()->GetTransportGuid() == guid);
+            (IsBoarded() && GetTransportInfo()->GetTransportGuid() == guid) ||
+            HasClientGuid(guid);
+}
+
+void Player::AddClientGuid(ObjectGuid const& guid)
+{
+    MAPLOCK_WRITE(this,MAP_LOCK_TYPE_MAPOBJECTS);
+    m_clientGUIDs.insert(guid);
+}
+
+void Player::RemoveClientGuid(ObjectGuid const& guid)
+{
+    MAPLOCK_WRITE(this,MAP_LOCK_TYPE_MAPOBJECTS);
+    m_clientGUIDs.erase(guid);
+}
+
+bool Player::HasClientGuid(ObjectGuid const& guid) const
+{
+    MAPLOCK_READ(const_cast<Player*>(this),MAP_LOCK_TYPE_MAPOBJECTS);
+    return (m_clientGUIDs.find(guid) != m_clientGUIDs.end());
 }
 
 template<class T>
@@ -20482,7 +20500,7 @@ void Player::UpdateVisibilityOf(WorldObject const* viewPoint, WorldObject* targe
             else
                 target->DestroyForPlayer(this);
 
-            GetClientGuids().erase(t_guid);
+            RemoveClientGuid(t_guid);
 
             DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "Player::UpdateVisibilityOf (by viewPoint) %s out of range for %s, distance = %f",t_guid.GetString().c_str(),GetObjectGuid().GetString().c_str(), GetDistance(target));
         }
@@ -20494,7 +20512,7 @@ void Player::UpdateVisibilityOf(WorldObject const* viewPoint, WorldObject* targe
             if (!GetMap()->IsVisibleGlobally(target->GetObjectGuid()))
             {
                 target->SendCreateUpdateToPlayer(this);
-                GetClientGuids().insert(target->GetObjectGuid());
+                AddClientGuid(target->GetObjectGuid());
 
                 DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "Player::UpdateVisibilityOf (by viewPoint) %s is visible now for %s, distance = %f", target->GetObjectGuid().GetString().c_str(), GetObjectGuid().GetString().c_str(), GetDistance(target));
 
@@ -20505,12 +20523,6 @@ void Player::UpdateVisibilityOf(WorldObject const* viewPoint, WorldObject* targe
             }
         }
     }
-}
-
-template<class T>
-inline void UpdateVisibilityOf_helper(GuidSet& s64, T* target)
-{
-    s64.insert(target->GetObjectGuid());
 }
 
 template<class T>
@@ -20525,7 +20537,7 @@ void Player::UpdateVisibilityOf(WorldObject const* viewPoint, T* target, UpdateD
             ObjectGuid t_guid = target->GetObjectGuid();
 
             target->BuildOutOfRangeUpdateBlock(&data);
-            GetClientGuids().erase(t_guid);
+            RemoveClientGuid(t_guid);
 
             DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "Player::UpdateVisibilityOf %s is out of range for %s, distance = %f", t_guid.GetString().c_str(), GetGuidStr().c_str(), GetDistance(target));
         }
@@ -20536,7 +20548,7 @@ void Player::UpdateVisibilityOf(WorldObject const* viewPoint, T* target, UpdateD
         {
             visibleNow.insert(target);
             target->BuildCreateUpdateBlockForPlayer(&data, this);
-            UpdateVisibilityOf_helper(GetClientGuids(), target);
+            AddClientGuid(target->GetObjectGuid());
 
             DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "Player::UpdateVisibilityOf %s is visible now for %s, distance = %f", target->GetGuidStr().c_str(), GetGuidStr().c_str(), GetDistance(target));
         }

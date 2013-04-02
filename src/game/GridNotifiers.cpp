@@ -49,7 +49,7 @@ void VisibleNotifier::Notify()
         if (!player.GetMap()->IsVisibleGlobally(guid))
         {
             i_data.AddOutOfRangeGUID(guid);
-            player.GetClientGuids().erase(guid);
+            player.RemoveClientGuid(guid);
             DEBUG_FILTER_LOG(LOG_FILTER_VISIBILITY_CHANGES, "VisibleNotifier::Notify %s is out of range (no in active cells set) now for %s",
                           guid.GetString().c_str(), player.GetGuidStr().c_str());
         }
@@ -63,7 +63,7 @@ void VisibleNotifier::Notify()
             }
             else
                 i_data.AddOutOfRangeGUID(guid);
-            player.GetClientGuids().erase(guid);
+            player.RemoveClientGuid(guid);
         }
     }
 

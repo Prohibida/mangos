@@ -2267,10 +2267,11 @@ class MANGOS_DLL_SPEC Player : public Unit
         Object* GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask);
 
         // list of currently visible objects, stored at player client
-        GuidSet& GetClientGuids() { return m_clientGUIDs; };
+        GuidSet const& GetClientGuids() { return m_clientGUIDs; };
         bool HaveAtClient(ObjectGuid const& guid) const;
-        // FIXME - need move container to private NS after correct SD2
-        GuidSet m_clientGUIDs;
+        void AddClientGuid(ObjectGuid const& guid);
+        void RemoveClientGuid(ObjectGuid const& guid);
+        bool HasClientGuid(ObjectGuid const& guid) const;
 
         bool IsVisibleInGridForPlayer(Player* pl) const;
         bool IsVisibleGloballyFor(Player* pl) const;
@@ -2749,6 +2750,9 @@ class MANGOS_DLL_SPEC Player : public Unit
         bool m_bHasBeenAliveAtDelayedTeleport;
 
         uint32 m_DetectInvTimer;
+
+        // Visible object storage
+        GuidSet m_clientGUIDs;
 
         // Temporary removed pet cache
         PetNumberList m_temporaryUnsummonedPetNumber;
