@@ -301,8 +301,7 @@ Map::EnsureGridLoadedAtEnter(const Cell &cell, Player *player)
             DEBUG_FILTER_LOG(LOG_FILTER_PLAYER_MOVES, "Active object nearby triggers of loading grid [%u,%u] on map %u", cell.GridX(), cell.GridY(), i_id);
         }
 
-        ResetGridExpiry(*getNGrid(cell.GridX(), cell.GridY()), 0.1f);
-        grid->SetGridState(GRID_STATE_ACTIVE);
+        ActivateGrid(grid);
     }
     else
         grid = getNGrid(cell.GridX(), cell.GridY());
@@ -367,6 +366,22 @@ bool Map::PreloadGrid(float x, float y)
     Cell cell(pair);
     EnsureGridLoaded(cell);
     return IsLoadingObjectsQueueEmpty();
+}
+
+void Map::ActivateGrid(WorldLocation const& loc)
+{
+    Cell _cell(MaNGOS::ComputeCellPair(loc.x, loc.y));
+    NGridType* nGrid = getNGrid(_cell.GridX(), _cell.GridY());
+    ActivateGrid(nGrid);
+}
+
+void Map::ActivateGrid(NGridType* nGrid)
+{
+    if (nGrid && nGrid->GetGridState() != GRID_STATE_ACTIVE)
+    {
+        ResetGridExpiry(*nGrid, 0.1f);
+        nGrid->SetGridState(GRID_STATE_ACTIVE);
+    }
 }
 
 bool Map::Add(Player *player)
@@ -854,11 +869,7 @@ void Map::Relocation(Player* player, Position const& pos)
     player->OnRelocated();
 
     NGridType* newGrid = getNGrid(new_cell.GridX(), new_cell.GridY());
-    if( !same_cell && newGrid->GetGridState()!= GRID_STATE_ACTIVE )
-    {
-        ResetGridExpiry(*newGrid, 0.1f);
-        newGrid->SetGridState(GRID_STATE_ACTIVE);
-    }
+    ActivateGrid(newGrid);
 };
 
 template<>
@@ -910,11 +921,8 @@ void Map::Relocation(GameObject* go, Position const& pos)
         RemoveFromGrid(go, oldGrid,old_cell);
         EnsureGridLoadedAtEnter(new_cell);
         NGridType* newGrid = getNGrid(new_cell.GridX(), new_cell.GridY());
-        if (newGrid->GetGridState() != GRID_STATE_ACTIVE)
-        {
-            ResetGridExpiry(*newGrid, 0.1f);
-            newGrid->SetGridState(GRID_STATE_ACTIVE);
-        }
+        ActivateGrid(newGrid);
+
         AddToGrid(go, newGrid, new_cell);
 
         go->GetViewPoint().Event_GridChanged(&(*newGrid)(new_cell.CellX(),new_cell.CellY()));
@@ -930,7 +938,7 @@ void Map::CreatureRelocation(Creature* object, float x, float y, float z, float 
     Relocation(object, Position(x, y, z, orientation, object->GetPhaseMask()));
 };
 
-bool Map::CreatureCellRelocation(Creature *c, Cell new_cell)
+bool Map::CreatureCellRelocation(Creature* c, Cell new_cell)
 {
     Cell const& old_cell = c->GetCurrentCell();
     if (old_cell.DiffGrid(new_cell))
@@ -949,6 +957,8 @@ bool Map::CreatureCellRelocation(Creature *c, Cell new_cell)
         NGridType* oldGrid = getNGrid(old_cell.GridX(), old_cell.GridY());
         NGridType* newGrid = getNGrid(new_cell.GridX(), new_cell.GridY());
         RemoveFromGrid(c, oldGrid, old_cell);
+        if (c->isActiveObject())
+            ActivateGrid(newGrid);
         AddToGrid(c, newGrid, new_cell);
         c->GetViewPoint().Event_GridChanged(&(*newGrid)(new_cell.CellX(),new_cell.CellY()));
     }

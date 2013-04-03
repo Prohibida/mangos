@@ -186,6 +186,8 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
             return loaded(p);
         }
         bool PreloadGrid(float x, float y);
+        void ActivateGrid(WorldLocation const& loc);
+        void ActivateGrid(NGridType* nGrid);
 
         bool GetUnloadLock(const GridPair &p) const { return getNGrid(p.x_coord, p.y_coord)->getUnloadLock(); }
         void SetUnloadLock(const GridPair &p, bool on) { getNGrid(p.x_coord, p.y_coord)->setUnloadExplicitLock(on); }
