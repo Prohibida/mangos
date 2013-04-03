@@ -20713,8 +20713,8 @@ void Player::SendInitialPacketsAfterAddToMap()
     SendEnchantmentDurations();                             // must be after add to map
     SendItemDurations();                                    // must be after add to map
 
-    // "Fake movement" in current point - maked only for grid activating (seems not need make special method for this)
-    GetMap()->Relocation(this, GetPosition());
+    // only grid activating
+    GetMap()->ActivateGrid(GetPosition());
 }
 
 void Player::SendUpdateToOutOfRangeGroupMembers()
