@@ -27,7 +27,6 @@
 #include "GridStates.h"
 #include "MapUpdater.h"
 
-class Transport;
 class BattleGround;
 
 struct MANGOS_DLL_DECL MapID
@@ -104,6 +103,7 @@ class MANGOS_DLL_DECL MapManager : public MaNGOS::Singleton<MapManager, MaNGOS::
 
         static bool ExistMapAndVMap(uint32 mapid, float x, float y);
         static bool IsValidMAP(uint32 mapid);
+        static bool IsTransportMap(uint32 mapid);
 
         static bool IsValidMapCoord(uint32 mapid, float x,float y)
         {
@@ -142,21 +142,12 @@ class MANGOS_DLL_DECL MapManager : public MaNGOS::Singleton<MapManager, MaNGOS::
 
         void RemoveAllObjectsInRemoveList();
 
-        void LoadTransports();
-
-        typedef UNORDERED_SET<Transport*> TransportSet;
-        TransportSet const& GetTransports() { return m_Transports; };
-
         bool CanPlayerEnter(uint32 mapid, Player* player);
         void InitializeVisibilityDistanceInfo();
 
         /* statistics */
         uint32 GetNumInstances();
         uint32 GetNumPlayersInInstances();
-
-        Transport* GetTransportByGuid(ObjectGuid const& guid);
-        Transport const* GetTransportByGOMapId(uint32 mapid) const;
-        bool IsTransportMap(uint32 mapid) const;
 
         //get list of all maps
         const MapMapType& Maps() const { return i_maps; }
@@ -191,8 +182,6 @@ class MANGOS_DLL_DECL MapManager : public MaNGOS::Singleton<MapManager, MaNGOS::
 
         uint32 i_gridCleanUpDelay;
         MapMapType i_maps;
-
-        TransportSet m_Transports;
 
         MapUpdater m_updater;
         ShortIntervalTimer i_balanceTimer;

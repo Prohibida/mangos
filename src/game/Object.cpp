@@ -2332,7 +2332,7 @@ void WorldObject::UpdateEvents(uint32 update_diff, uint32 time)
 
 Transport* WorldObject::GetTransport() const
 {
-    return IsOnTransport() ? sMapMgr.GetTransportByGuid(GetTransportInfo()->GetTransportGuid()) : NULL;
+    return IsOnTransport() ? sObjectMgr.GetTransportByGuid(GetTransportInfo()->GetTransportGuid()) : NULL;
 }
 
 bool WorldObject::IsOnTransport() const

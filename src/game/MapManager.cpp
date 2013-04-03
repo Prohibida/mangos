@@ -21,7 +21,6 @@
 #include "Policies/Singleton.h"
 #include "Database/DatabaseEnv.h"
 #include "Log.h"
-#include "Transports.h"
 #include "GridDefines.h"
 #include "World.h"
 #include "CellImpl.h"
@@ -42,9 +41,6 @@ MapManager::~MapManager()
 {
     for(MapMapType::iterator iter=i_maps.begin(); iter != i_maps.end(); ++iter)
         delete iter->second;
-
-    for(TransportSet::iterator i = m_Transports.begin(); i != m_Transports.end(); ++i)
-        delete *i;
 
     DeleteStateMachine();
 }
@@ -452,4 +448,10 @@ void MapManager::UpdateLoadBalancer(bool b_start)
     m_tickCount = 0;
 
     i_balanceTimer.SetCurrent(0);
+}
+
+bool MapManager::IsTransportMap(uint32 mapid)
+{
+    MapEntry const* mapEntry = sMapStore.LookupEntry(mapid);
+    return mapEntry ? mapEntry->IsTransport() : false;
 }

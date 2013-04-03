@@ -15951,7 +15951,7 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder)
     if (transGUID != 0)
     {
         ObjectGuid transportGuid = ObjectGuid(HIGHGUID_MO_TRANSPORT,transGUID);
-        Transport* transport = sMapMgr.GetTransportByGuid(transportGuid);
+        Transport* transport = sObjectMgr.GetTransportByGuid(transportGuid);
 
         if (transport)
         {
