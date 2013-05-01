@@ -956,15 +956,6 @@ uint32 Unit::DealDamage(DamageInfo* damageInfo)
             player_tap->SendDirectMessage(&data);
         }
 
-        // Reward player, his pets, and group/raid members
-        if (player_tap != pVictim)
-        {
-            if (group_tap)
-                group_tap->RewardGroupAtKill(pVictim, player_tap);
-            else if (player_tap)
-                player_tap->RewardSinglePlayerAtKill(pVictim);
-        }
-
         // stop combat
         DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "Unit::DealDamage DealDamageAttackStop, %s stopped attack",GetGuidStr().c_str());
         pVictim->CombatStop();
@@ -1074,6 +1065,15 @@ uint32 Unit::DealDamage(DamageInfo* damageInfo)
             if (player_tap)                                 // killedby Player
                 if (BattleGround* bg = player_tap->GetBattleGround())
                     bg->HandleKillUnit((Creature*)pVictim, player_tap);
+        }
+
+        // Reward player, his pets, and group/raid members
+        if (player_tap != pVictim)
+        {
+            if (group_tap)
+                group_tap->RewardGroupAtKill(pVictim, player_tap);
+            else if (player_tap)
+                player_tap->RewardSinglePlayerAtKill(pVictim);
         }
     }
     else                                                    // if (health <= damage)
@@ -5866,7 +5866,7 @@ void Unit::TriggerPassiveAurasWithAttribute(bool active, uint32 flags)
         SpellAuraHolderMap const& holdersMap = GetSpellAuraHolderMap();
         for (SpellAuraHolderMap::const_iterator iter = holdersMap.begin(); iter != holdersMap.end(); ++iter)
         {
-            if (!iter->second || 
+            if (!iter->second ||
                 iter->second->IsDeleted() ||
                 !IsPassiveSpell(iter->second->GetSpellProto()) ||
                 !iter->second->GetSpellProto()->HasAttribute((SpellAttributes)flags)
@@ -6266,7 +6266,7 @@ Aura* Unit::GetAuraByEffectMask(AuraType type, SpellFamily family, ClassFamilyMa
             continue;
 
         if ((*i)->GetAuraSpellClassMask() == classMask &&
-            (family <= SPELLFAMILY_PET &&  (*i)->GetSpellProto()->SpellFamilyName == family) &&
+            (family <= SPELLFAMILY_PET && SpellFamily((*i)->GetSpellProto()->SpellFamilyName) == family) &&
             (!casterGuid || (*i)->GetCasterGuid() == casterGuid))
             return (*i)();
     }
@@ -7737,9 +7737,25 @@ void Unit::UnsummonAllTotems()
             totem->UnSummon();
 }
 
+/*
+ * deprecated
+ */
 int32 Unit::DealHeal(Unit* pVictim, uint32 addhealth, SpellEntry const* spellProto, bool critical, uint32 absorb)
 {
-    int32 gain = pVictim->ModifyHealth(int32(addhealth));
+    DamageInfo healInfo = DamageInfo(this, pVictim, spellProto, addhealth);
+    healInfo.absorb = absorb;
+    return DealHeal(&healInfo, critical);
+}
+
+int32  Unit::DealHeal(DamageInfo* healInfo, bool critical/* = false*/)
+{
+    if (!healInfo || !healInfo->target)
+        return 0;
+
+    Unit* pVictim = healInfo->target;
+    SpellEntry const* spellProto = healInfo->GetSpellProto();
+
+    int32 gain = pVictim->ModifyHealth(healInfo->heal);
 
     Unit* unit = this;
 
@@ -7747,7 +7763,7 @@ int32 Unit::DealHeal(Unit* pVictim, uint32 addhealth, SpellEntry const* spellPro
         unit = GetOwner();
 
     // overheal = addhealth - gain
-    unit->SendHealSpellLog(pVictim, spellProto->Id, addhealth, addhealth - gain, critical, absorb);
+    unit->SendHealSpellLog(pVictim, spellProto->Id, healInfo->heal, healInfo->heal - gain, critical, healInfo->absorb);
 
     if (unit->GetTypeId() == TYPEID_PLAYER)
     {
@@ -7758,14 +7774,18 @@ int32 Unit::DealHeal(Unit* pVictim, uint32 addhealth, SpellEntry const* spellPro
         if (gain)
             ((Player*)unit)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HEALING_DONE, gain, 0, pVictim);
 
-        ((Player*)unit)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HEAL_CASTED, addhealth);
+        ((Player*)unit)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HEAL_CASTED, healInfo->heal);
     }
 
     if (pVictim->GetTypeId() == TYPEID_PLAYER)
     {
         ((Player*)pVictim)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_TOTAL_HEALING_RECEIVED, gain);
-        ((Player*)pVictim)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HEALING_RECEIVED, addhealth);
+        ((Player*)pVictim)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HEALING_RECEIVED, healInfo->heal);
     }
+
+    // Script Event HealedBy
+    if (pVictim->GetTypeId() == TYPEID_UNIT && ((Creature*)pVictim)->AI())
+        ((Creature*)pVictim)->AI()->HealedBy(this, healInfo->heal);
 
     return gain;
 }
@@ -10394,7 +10414,7 @@ struct SetSpeedRateHelper
 
 void Unit::SetSpeedRate(UnitMoveType mtype, float rate, bool forced)
 {
-    if (rate < 0)
+    if (rate < 0.0f)
         rate = 0.0f;
 
     // Update speed only on change
@@ -10405,25 +10425,22 @@ void Unit::SetSpeedRate(UnitMoveType mtype, float rate, bool forced)
 
         const Opcodes SetSpeed2Opc_table[MAX_MOVE_TYPE][2]=
         {
-            {MSG_MOVE_SET_WALK_SPEED,       SMSG_FORCE_WALK_SPEED_CHANGE},
-            {MSG_MOVE_SET_RUN_SPEED,        SMSG_FORCE_RUN_SPEED_CHANGE},
-            {MSG_MOVE_SET_RUN_BACK_SPEED,   SMSG_FORCE_RUN_BACK_SPEED_CHANGE},
-            {MSG_MOVE_SET_SWIM_SPEED,       SMSG_FORCE_SWIM_SPEED_CHANGE},
-            {MSG_MOVE_SET_SWIM_BACK_SPEED,  SMSG_FORCE_SWIM_BACK_SPEED_CHANGE},
-            {MSG_MOVE_SET_TURN_RATE,        SMSG_FORCE_TURN_RATE_CHANGE},
-            {MSG_MOVE_SET_FLIGHT_SPEED,     SMSG_FORCE_FLIGHT_SPEED_CHANGE},
-            {MSG_MOVE_SET_FLIGHT_BACK_SPEED,SMSG_FORCE_FLIGHT_BACK_SPEED_CHANGE},
-            {MSG_MOVE_SET_PITCH_RATE,       SMSG_FORCE_PITCH_RATE_CHANGE},
+            {MSG_MOVE_SET_WALK_SPEED,        SMSG_FORCE_WALK_SPEED_CHANGE},
+            {MSG_MOVE_SET_RUN_SPEED,         SMSG_FORCE_RUN_SPEED_CHANGE},
+            {MSG_MOVE_SET_RUN_BACK_SPEED,    SMSG_FORCE_RUN_BACK_SPEED_CHANGE},
+            {MSG_MOVE_SET_SWIM_SPEED,        SMSG_FORCE_SWIM_SPEED_CHANGE},
+            {MSG_MOVE_SET_SWIM_BACK_SPEED,   SMSG_FORCE_SWIM_BACK_SPEED_CHANGE},
+            {MSG_MOVE_SET_TURN_RATE,         SMSG_FORCE_TURN_RATE_CHANGE},
+            {MSG_MOVE_SET_FLIGHT_SPEED,      SMSG_FORCE_FLIGHT_SPEED_CHANGE},
+            {MSG_MOVE_SET_FLIGHT_BACK_SPEED, SMSG_FORCE_FLIGHT_BACK_SPEED_CHANGE},
+            {MSG_MOVE_SET_PITCH_RATE,        SMSG_FORCE_PITCH_RATE_CHANGE},
         };
 
-        if (forced)
+        if (forced && GetTypeId() == TYPEID_PLAYER)
         {
-            if (GetTypeId() == TYPEID_PLAYER)
-            {
-                // register forced speed changes for WorldSession::HandleForceSpeedChangeAck
-                // and do it only for real sent packets and use run for run/mounted as client expected
-                ++((Player*)this)->m_forced_speed_changes[mtype];
-            }
+            // register forced speed changes for WorldSession::HandleForceSpeedChangeAck
+            // and do it only for real sent packets and use run for run/mounted as client expected
+            ++((Player*)this)->m_forced_speed_changes[mtype];
 
             WorldPacket data(SetSpeed2Opc_table[mtype][1], 18);
             data << GetPackGUID();
@@ -10431,18 +10448,18 @@ void Unit::SetSpeedRate(UnitMoveType mtype, float rate, bool forced)
             if (mtype == MOVE_RUN)
                 data << uint8(0);                               // new 2.1.0
             data << float(GetSpeed(mtype));
-            SendMessageToSet(&data, true);
-        }
-        else
-        {
-            m_movementInfo.UpdateTime(WorldTimer::getMSTime());
 
-            WorldPacket data(SetSpeed2Opc_table[mtype][0], 64);
-            data << GetPackGUID();
-            data << m_movementInfo;
-            data << float(GetSpeed(mtype));
-            SendMessageToSet(&data, true);
+            ((Player*)this)->GetSession()->SendPacket(&data);
         }
+
+        m_movementInfo.UpdateTime(WorldTimer::getMSTime());
+
+        // TODO: Actually such opcodes should (always?) be packed with SMSG_COMPRESSED_MOVES
+        WorldPacket data(SetSpeed2Opc_table[mtype][0], 64);
+        data << GetPackGUID();
+        data << m_movementInfo;
+        data << float(GetSpeed(mtype));
+        SendMessageToSet(&data, false);
     }
 
     CallForAllControlledUnits(SetSpeedRateHelper(mtype,forced), CONTROLLED_PET|CONTROLLED_GUARDIANS|CONTROLLED_CHARM|CONTROLLED_MINIPET);
@@ -12566,6 +12583,9 @@ void Unit::StopMoving()
     if (!IsInWorld())
         return;
 
+    if (movespline->Finalized())
+        return;
+
     Movement::MoveSplineInit<Unit*> init(*this);
     init.SetFacing(GetOrientation());
     init.Launch();
@@ -13333,7 +13353,7 @@ void Unit::EnterVehicle(Unit* vehicleBase, int8 seatId)
         {
             for (SpellClickInfoMap::const_iterator itr = clickPair.first; itr != clickPair.second; ++itr)
             {
-                if (itr->second.IsFitToRequirements((Player*)this))
+                if (itr->second.IsFitToRequirements((Player*)this, (Creature*)vehicleBase))
                 {
 
                     spellInfo = sSpellStore.LookupEntry(itr->second.spellId);
@@ -13520,6 +13540,8 @@ void Unit::_ExitVehicle(bool forceDismount)
 {
     if (!GetVehicle())
         return;
+
+    DisableSpline();
 
     if (GetVehicle()->GetBase() && GetVehicle()->GetBase()->IsInWorld())
         GetVehicle()->RemovePassenger(this, !forceDismount);
@@ -14258,12 +14280,27 @@ void DamageInfo::Reset(uint32 _damage)
     attackType    = GetWeaponAttackType(GetSpellProto());
 }
 
-SpellSchoolMask  DamageInfo::SchoolMask() const
+SpellSchoolMask DamageInfo::SchoolMask() const
 {
     return GetSpellProto() ?
         SpellSchoolMask(GetSpellProto()->SchoolMask) :
         attacker && attacker->GetMeleeDamageSchoolMask() ? attacker->GetMeleeDamageSchoolMask() : SPELL_SCHOOL_MASK_NORMAL;
-};
+}
+
+uint32 DamageInfo::AddAbsorb(uint32 addvalue)
+{
+    uint32 realabsorb = addvalue;
+    if (damage < realabsorb)
+        realabsorb = damage;
+    absorb += realabsorb;
+    damage -= realabsorb;
+    return realabsorb - addvalue;
+}
+void DamageInfo::AddPctAbsorb(float aborbPct)
+{
+    uint32 realabsorb = damage * aborbPct/100.0f;
+    AddAbsorb(realabsorb);
+}
 
 void Unit::SetLastManaUse()
 {

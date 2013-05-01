@@ -68,8 +68,16 @@ namespace Movement
 
         if (args.path.empty())
         {
-            // should i do the things that user should do?
+            // form final position only for rotate
+            if (!args.flags.isFacing())
+                return 0;
             MoveTo(real_position);
+        }
+        else
+        {
+            // check path equivalence
+            if (!args.flags.isFacing() && args.path[0] == args.path[args.path.size() - 1])
+                return 0;
         }
 
         // corrent first vertex
@@ -151,8 +159,16 @@ namespace Movement
 
         if (args.path.empty())
         {
-            // should i do the things that user should do?
+            // form final position only for rotate
+            if (!args.flags.isFacing())
+                return 0;
             MoveTo(real_position);
+        }
+        else
+        {
+            // check path equivalence
+            if (!args.flags.isFacing() && args.path[0] == args.path[args.path.size() - 1])
+                return 0;
         }
 
         // corrent first vertex

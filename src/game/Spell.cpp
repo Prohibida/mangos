@@ -1245,7 +1245,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
             damageInfo.procEx |= PROC_EX_NORMAL_HIT;
 
         damageInfo.absorb = 0;
-        unitTarget->CalculateHealAbsorb(damageInfo.damage, &damageInfo.absorb);
+        damageInfo.target->CalculateHealAbsorb(damageInfo.damage, &damageInfo.absorb);
         damageInfo.damage -= damageInfo.absorb;
 
         // Do triggers for unit (reflect triggers passed on hit phase for correct drop charge)
@@ -1253,11 +1253,11 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
         {
             uint32 saveAttacker = damageInfo.procAttacker;
             damageInfo.procAttacker = real_caster ? damageInfo.procAttacker : PROC_FLAG_NONE;
-            caster->ProcDamageAndSpell(&damageInfo);
+            damageInfo.attacker->ProcDamageAndSpell(&damageInfo);
             damageInfo.procAttacker = saveAttacker;
         }
 
-        int32 gain = caster->DealHeal(unitTarget, damageInfo.damage, m_spellInfo, crit, damageInfo.absorb);
+        int32 gain = damageInfo.attacker->DealHeal(&damageInfo, crit);
 
         if (real_caster)
             unitTarget->getHostileRefManager().threatAssist(real_caster, float(gain) * 0.5f * sSpellMgr.GetSpellThreatMultiplier(m_spellInfo), m_spellInfo);
@@ -1802,6 +1802,10 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
     switch (targetMode)
     {
         case TARGET_RANDOM_NEARBY_LOC:
+            // special case for Fatal Attraction (BT, Mother Shahraz)
+            if (m_spellInfo->Id == 40869)
+                radius = 30.0f;
+
             // Get a random point in circle. Use sqrt(rand) to correct distribution when converting polar to Cartesian coordinates.
             radius *= sqrt(rand_norm_f());
             /* no break expected since we use code in case TARGET_RANDOM_CIRCUMFERENCE_POINT!!!*/
@@ -6666,7 +6670,7 @@ SpellCastResult Spell::CheckCast(bool strict)
 
 SpellCastResult Spell::CheckPetCast(Unit* target)
 {
-    if(!m_caster->isAlive())
+    if(!m_caster->isAlive() && !m_spellInfo->HasAttribute(SPELL_ATTR_CASTABLE_WHILE_DEAD))
         return SPELL_FAILED_CASTER_DEAD;
 
     if (m_caster->IsNonMeleeSpellCasted(false))              //prevent spellcast interruption by another spellcast
@@ -7971,11 +7975,9 @@ bool Spell::IsNeedSendToClient() const
         m_spellInfo->speed > 0.0f || (!m_triggeredByAuraSpell && !m_IsTriggeredSpell);
 }
 
-bool Spell::IsTriggeredSpellWithRedundentData() const
+bool Spell::IsTriggeredSpellWithRedundentCastTime() const
 {
-    return m_triggeredByAuraSpell || m_triggeredBySpellInfo ||
-        // possible not need after above check?
-        (m_IsTriggeredSpell && (m_spellInfo->manaCost || m_spellInfo->ManaCostPercentage));
+    return m_IsTriggeredSpell && (m_spellInfo->manaCost || m_spellInfo->ManaCostPercentage);
 }
 
 bool Spell::HaveTargetsForEffect(SpellEffectIndex effect) const
