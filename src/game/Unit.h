@@ -1015,9 +1015,10 @@ struct DamageInfo
         // absorb
         uint32 AddAbsorb(uint32 addvalue);
         void AddPctAbsorb(float aborbPct);
+        uint32 GetAbsorb() const { return absorb; };
         // should not be used, possible for some kinds of hacks
         void SetAbsorb(uint32 value) { absorb = value; };
-        uint32 GetAbsorb() { return absorb; };
+
 
 
     private:
@@ -2158,7 +2159,8 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         bool IsInUnitState(UnitActionId state) const { return m_stateMgr.GetCurrentState() == state; }
 
         bool IsStopped() const { return !(hasUnitState(UNIT_STAT_MOVING)); }
-        void StopMoving();
+        void StopMoving(bool ignoreMoveState = false);
+        void InterruptMoving(bool ignoreMoveState = false);
 
         void SetFeared(bool apply, ObjectGuid casterGuid = ObjectGuid(), uint32 spellID = 0, uint32 time = 0);
         void SetConfused(bool apply, ObjectGuid casterGuid = ObjectGuid(), uint32 spellID = 0);

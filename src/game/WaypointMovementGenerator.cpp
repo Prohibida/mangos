@@ -84,12 +84,7 @@ void WaypointMovementGenerator<Creature>::Finalize(Creature &creature)
 
 void WaypointMovementGenerator<Creature>::Interrupt(Creature &creature)
 {
-    if (!creature.movespline->Finalized())
-    {
-        Position loc = creature.movespline->ComputePosition();
-        creature.SetPosition(loc);
-        creature.movespline->_Interrupt();
-    }
+    creature.InterruptMoving();
     creature.clearUnitState(UNIT_STAT_ROAMING | UNIT_STAT_ROAMING_MOVE);
     creature.SetWalk(!creature.hasUnitState(UNIT_STAT_RUNNING_STATE), false);
 }
@@ -306,12 +301,12 @@ void FlightPathMovementGenerator::_Initialize(Player &player)
 
 void FlightPathMovementGenerator::_Finalize(Player & player)
 {
-    if(player.m_taxi.empty())
+    if (player.m_taxi.empty())
     {
         // update z position to ground and orientation for landing point
         // this prevent cheating with landing  point at lags
         // when client side flight end early in comparison server side
-        player.StopMoving();
+        player.StopMoving(true);
     }
 }
 

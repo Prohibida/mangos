@@ -622,9 +622,7 @@ void Unit::DealDamageMods(DamageInfo* damageInfo)
 
     if (!pVictim->isAlive() || pVictim->IsTaxiFlying() || (pVictim->GetTypeId() == TYPEID_UNIT && ((Creature*)pVictim)->IsInEvadeMode()))
     {
-        if (damageInfo->absorb)
-            damageInfo->absorb += damageInfo->damage;
-        damageInfo->damage = 0;
+        damageInfo->AddAbsorb(damageInfo->damage);
         return;
     }
 
@@ -632,9 +630,7 @@ void Unit::DealDamageMods(DamageInfo* damageInfo)
     //You still see it in the combat log though
     if (!IsAllowedDamageInArea(pVictim))
     {
-        if (damageInfo->absorb)
-            damageInfo->absorb += damageInfo->damage;
-        damageInfo->damage = 0;
+        damageInfo->AddAbsorb(damageInfo->damage);
     }
 
     uint32 originalDamage = damageInfo->damage;
@@ -646,8 +642,8 @@ void Unit::DealDamageMods(DamageInfo* damageInfo)
     if ( pVictim->GetTypeId()== TYPEID_UNIT && ((Creature *)pVictim)->AI() )
         ((Creature *)pVictim)->AI()->DamageTaken(this, damageInfo->damage);
 
-    if (damageInfo->absorb && originalDamage > damageInfo->damage)
-        damageInfo->absorb += (originalDamage - damageInfo->damage);
+    if (originalDamage > damageInfo->damage)
+        damageInfo->AddAbsorb(originalDamage - damageInfo->damage);
 }
 
 uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, DamageInfo* damageInfo, DamageEffectType damagetype, SpellSchoolMask damageSchoolMask, SpellEntry const *spellProto, bool durabilityLoss)
@@ -739,7 +735,7 @@ uint32 Unit::DealDamage(DamageInfo* damageInfo)
         if (!damageInfo->cleanDamage)
             return 0;
 
-        if (!damageInfo->absorb)
+        if (!damageInfo->GetAbsorb())
         {
             // Rage from physical damage received .
             if (damageInfo->cleanDamage && (damageInfo->SchoolMask() & SPELL_SCHOOL_MASK_NORMAL) && pVictim->GetTypeId() == TYPEID_PLAYER && (pVictim->getPowerType() == POWER_RAGE))
@@ -845,7 +841,7 @@ uint32 Unit::DealDamage(DamageInfo* damageInfo)
                 else
                     weaponSpeedHitFactor = uint32(GetAttackTime(damageInfo->attackType)/1000.0f * 3.5f);
 
-                ((Player*)this)->RewardRage(damageInfo->damage + damageInfo->absorb, weaponSpeedHitFactor, true);
+                ((Player*)this)->RewardRage(damageInfo->damage + damageInfo->GetAbsorb(), weaponSpeedHitFactor, true);
 
                 break;
             }
@@ -856,7 +852,7 @@ uint32 Unit::DealDamage(DamageInfo* damageInfo)
                 else
                     weaponSpeedHitFactor = uint32(GetAttackTime(damageInfo->attackType)/1000.0f * 1.75f);
 
-                ((Player*)this)->RewardRage(damageInfo->damage + damageInfo->absorb, weaponSpeedHitFactor, true);
+                ((Player*)this)->RewardRage(damageInfo->damage + damageInfo->GetAbsorb(), weaponSpeedHitFactor, true);
 
                 break;
             }
@@ -1100,7 +1096,7 @@ uint32 Unit::DealDamage(DamageInfo* damageInfo)
 
         if (pVictim->GetTypeId() != TYPEID_PLAYER)
         {
-            float threat = (damageInfo->damage + (damageInfo->cleanDamage ? (damageInfo->cleanDamage + damageInfo->absorb) : 0)) * sSpellMgr.GetSpellThreatMultiplier(spellProto);
+            float threat = (damageInfo->damage + (damageInfo->cleanDamage ? (damageInfo->cleanDamage + damageInfo->GetAbsorb()) : 0)) * sSpellMgr.GetSpellThreatMultiplier(spellProto);
             pVictim->AddThreat(this, threat, (damageInfo->cleanDamage && damageInfo->hitOutCome == MELEE_HIT_CRIT), damageInfo->SchoolMask(), spellProto);
         }
         else                                                // victim is a player
@@ -1108,7 +1104,7 @@ uint32 Unit::DealDamage(DamageInfo* damageInfo)
             // Rage from damage received
             if (this != pVictim && pVictim->getPowerType() == POWER_RAGE)
             {
-                uint32 rage_damage = damageInfo->damage + (damageInfo->cleanDamage ? (damageInfo->cleanDamage + damageInfo->absorb) : 0);
+                uint32 rage_damage = damageInfo->damage + (damageInfo->cleanDamage ? (damageInfo->cleanDamage + damageInfo->GetAbsorb()) : 0);
                 ((Player*)pVictim)->RewardRage(rage_damage, 0, false);
             }
 
@@ -1745,7 +1741,7 @@ void Unit::DealSpellDamage(DamageInfo* damageInfo, bool durabilityLoss)
         return;
 
     // Call default DealDamage (send critical in hit info for threat calculation)
-    damageInfo->CleanDamage(0, damageInfo->absorb, BASE_ATTACK, damageInfo->HitInfo & SPELL_HIT_TYPE_CRIT ? MELEE_HIT_CRIT : MELEE_HIT_NORMAL);
+    damageInfo->CleanDamage(0, damageInfo->GetAbsorb(), BASE_ATTACK, damageInfo->HitInfo & SPELL_HIT_TYPE_CRIT ? MELEE_HIT_CRIT : MELEE_HIT_NORMAL);
     damageInfo->damageType = SPELL_DIRECT_DAMAGE;
 
     DealDamage(pVictim, damageInfo, durabilityLoss);
@@ -2797,7 +2793,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit* pCaster, DamageInfo* damageInfo,
 
             splitdamageInfo.procVictim |= PROC_FLAG_TAKEN_ANY_DAMAGE;
 
-            if (splitdamageInfo.absorb)
+            if (splitdamageInfo.GetAbsorb())
                 splitdamageInfo.procEx |= PROC_EX_ABSORB;
 
             if (splitdamageInfo.damage == 0)
@@ -2807,8 +2803,8 @@ void Unit::CalculateDamageAbsorbAndResist(Unit* pCaster, DamageInfo* damageInfo,
 
             caster->ProcDamageAndSpellFor(true,&splitdamageInfo);
 
-            pCaster->SendSpellNonMeleeDamageLog(caster, (*i)->GetSpellProto()->Id, splitdamageInfo.damage, damageInfo->SchoolMask(), splitdamageInfo.absorb, 0, false, 0, false);
-            splitdamageInfo.cleanDamage = splitdamageInfo.damage - splitdamageInfo.absorb;
+            pCaster->SendSpellNonMeleeDamageLog(caster, (*i)->GetSpellProto()->Id, splitdamageInfo.damage, damageInfo->SchoolMask(), splitdamageInfo.GetAbsorb(), 0, false, 0, false);
+            splitdamageInfo.cleanDamage = splitdamageInfo.damage - splitdamageInfo.GetAbsorb();
             pCaster->DealDamage(caster, &splitdamageInfo, false);
         }
 
@@ -2838,7 +2834,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit* pCaster, DamageInfo* damageInfo,
 
             splitdamageInfo.procVictim |= PROC_FLAG_TAKEN_ANY_DAMAGE;
 
-            if (splitdamageInfo.absorb)
+            if (splitdamageInfo.GetAbsorb())
                 splitdamageInfo.procEx |= PROC_EX_ABSORB;
 
             if (splitdamageInfo.damage == 0)
@@ -2848,8 +2844,8 @@ void Unit::CalculateDamageAbsorbAndResist(Unit* pCaster, DamageInfo* damageInfo,
 
             caster->ProcDamageAndSpellFor(true,&splitdamageInfo);
 
-            pCaster->SendSpellNonMeleeDamageLog(caster, (*i)->GetSpellProto()->Id, splitdamageInfo.damage, damageInfo->SchoolMask(), splitdamageInfo.absorb, 0, false, 0, false);
-            splitdamageInfo.cleanDamage = splitdamageInfo.damage - splitdamageInfo.absorb;
+            pCaster->SendSpellNonMeleeDamageLog(caster, (*i)->GetSpellProto()->Id, splitdamageInfo.damage, damageInfo->SchoolMask(), splitdamageInfo.GetAbsorb(), 0, false, 0, false);
+            splitdamageInfo.cleanDamage = splitdamageInfo.damage - splitdamageInfo.GetAbsorb();
             pCaster->DealDamage(caster, &splitdamageInfo, false);
         }
     }
@@ -2894,10 +2890,10 @@ void Unit::CalculateDamageAbsorbAndResist(Unit* pCaster, DamageInfo* damageInfo,
 
     damageInfo->absorb = damageInfo->damage - damageInfo->resist - RemainingDamage - absorb_unaffected_damage;
 
-    if (damageInfo->absorb)
+    if (damageInfo->GetAbsorb())
     {
         damageInfo->procEx  |= PROC_EX_ABSORB;
-        damageInfo->HitInfo |= (damageInfo->damage <= damageInfo->absorb) ? HITINFO_ABSORB : HITINFO_PARTIAL_ABSORB;
+        damageInfo->HitInfo |= (damageInfo->damage <= damageInfo->GetAbsorb()) ? HITINFO_ABSORB : HITINFO_PARTIAL_ABSORB;
     }
 
     if (damageInfo->resist)
@@ -2906,14 +2902,14 @@ void Unit::CalculateDamageAbsorbAndResist(Unit* pCaster, DamageInfo* damageInfo,
         damageInfo->HitInfo |= (damageInfo->damage <= damageInfo->resist) ? HITINFO_RESIST : HITINFO_PARTIAL_RESIST;
     }
 
-    if (damageInfo->damage <= (damageInfo->absorb + damageInfo->resist))
+    if (damageInfo->damage <= (damageInfo->GetAbsorb() + damageInfo->resist))
     {
         damageInfo->damage = 0;
         damageInfo->procEx &= ~PROC_EX_DIRECT_DAMAGE;
     }
     else
     {
-        damageInfo->damage -= damageInfo->absorb + damageInfo->resist;
+        damageInfo->damage -= damageInfo->GetAbsorb() + damageInfo->resist;
         damageInfo->procEx |= PROC_EX_DIRECT_DAMAGE;
     }
 }
@@ -3060,7 +3056,7 @@ void Unit::AttackerStateUpdate(Unit* pVictim, WeaponAttackType attType, bool ext
     DealMeleeDamage(&damageInfo,true);
 
     DEBUG_FILTER_LOG(LOG_FILTER_COMBAT,"Unit::AttackerStateUpdate:  %s attacked %s  hit %u att %u for %u dmg, absorbed %u, blocked %u, resisted %u",
-        GetObjectGuid().GetString().c_str(), pVictim->GetObjectGuid().GetString().c_str(), hitInfo, attType, damageInfo.damage, damageInfo.absorb, damageInfo.blocked, damageInfo.resist);
+        GetObjectGuid().GetString().c_str(), pVictim->GetObjectGuid().GetString().c_str(), hitInfo, attType, damageInfo.damage, damageInfo.GetAbsorb(), damageInfo.blocked, damageInfo.resist);
 
     // if damage pVictim call AI reaction
     pVictim->AttackedBy(this);
@@ -6616,7 +6612,7 @@ void Unit::SendSpellNonMeleeDamageLog(DamageInfo *log)
     data << uint32(log->damage);                            // damage amount
     data << uint32(overkill);                               // overkill
     data << uint8 (log->SchoolMask());                      // damage school
-    data << uint32(log->absorb);                            // AbsorbedDamage
+    data << uint32(log->GetAbsorb());                       // AbsorbedDamage
     data << uint32(log->resist);                            // resist
     data << uint8 (log->physicalLog);                       // if 1, then client show spell name (example: %s's ranged shot hit %s for %u school or %s suffers %u school damage from %s's spell_name
     data << uint8 (log->unused);                            // unused
@@ -6629,7 +6625,7 @@ void Unit::SendSpellNonMeleeDamageLog(DamageInfo *log)
 void Unit::SendSpellNonMeleeDamageLog(Unit *target, uint32 SpellID, uint32 Damage, SpellSchoolMask damageSchoolMask, uint32 AbsorbedDamage, uint32 Resist, bool PhysicalDamage, uint32 Blocked, bool CriticalHit)
 {
     DamageInfo log(this, target, SpellID,(Damage - AbsorbedDamage - Resist - Blocked));
-    log.absorb = AbsorbedDamage;
+    log.SetAbsorb(AbsorbedDamage);
     log.resist = Resist;
     log.physicalLog = PhysicalDamage;
     log.blocked = Blocked;
@@ -6751,7 +6747,7 @@ void Unit::SendAttackStateUpdate(DamageInfo* damageInfo)
     if (damageInfo->HitInfo & (HITINFO_ABSORB | HITINFO_PARTIAL_ABSORB))
     {
         for(uint32 i = 0; i < count; ++i)
-            data << uint32(damageInfo->absorb);             // Absorb
+            data << uint32(damageInfo->GetAbsorb());             // Absorb
     }
 
     if (damageInfo->HitInfo & (HITINFO_RESIST | HITINFO_PARTIAL_RESIST))
@@ -7743,7 +7739,7 @@ void Unit::UnsummonAllTotems()
 int32 Unit::DealHeal(Unit* pVictim, uint32 addhealth, SpellEntry const* spellProto, bool critical, uint32 absorb)
 {
     DamageInfo healInfo = DamageInfo(this, pVictim, spellProto, addhealth);
-    healInfo.absorb = absorb;
+    healInfo.SetAbsorb(absorb);
     return DealHeal(&healInfo, critical);
 }
 
@@ -7763,7 +7759,7 @@ int32  Unit::DealHeal(DamageInfo* healInfo, bool critical/* = false*/)
         unit = GetOwner();
 
     // overheal = addhealth - gain
-    unit->SendHealSpellLog(pVictim, spellProto->Id, healInfo->heal, healInfo->heal - gain, critical, healInfo->absorb);
+    unit->SendHealSpellLog(pVictim, spellProto->Id, healInfo->heal, healInfo->heal - gain, critical, healInfo->GetAbsorb());
 
     if (unit->GetTypeId() == TYPEID_PLAYER)
     {
@@ -12269,7 +12265,7 @@ uint32 createProcExtendMask(DamageInfo *damageInfo, SpellMissInfo missCondition)
         if (damageInfo->blocked)
             procEx|=PROC_EX_BLOCK;
         // On absorb
-        if (damageInfo->absorb)
+        if (damageInfo->GetAbsorb())
             procEx|=PROC_EX_ABSORB;
         // On crit
         if (damageInfo->HitInfo & SPELL_HIT_TYPE_CRIT)
@@ -12575,20 +12571,38 @@ void Unit::SendCharmState()
 
 ///----------End of Pet responses methods----------
 
-void Unit::StopMoving()
+void Unit::StopMoving(bool ignoreMoveState/*=false*/)
 {
+    if (IsStopped() && !ignoreMoveState)
+        return;
+
     clearUnitState(UNIT_STAT_MOVING);
 
     // not need send any packets if not in world
     if (!IsInWorld())
         return;
 
-    if (movespline->Finalized())
-        return;
-
     Movement::MoveSplineInit<Unit*> init(*this);
     init.SetFacing(GetOrientation());
     init.Launch();
+}
+
+void Unit::InterruptMoving(bool ignoreMoveState /*=false*/)
+{
+    if (!movespline)
+        return;
+
+    bool isMoving = false;
+
+    if (!movespline->Finalized())
+    {
+        Position loc = movespline->ComputePosition();
+        movespline->_Interrupt();
+        SetPosition(loc);
+        isMoving = true;
+    }
+
+    StopMoving(ignoreMoveState || isMoving);
 }
 
 void Unit::SetFeared(bool apply, ObjectGuid casterGuid, uint32 spellID, uint32 time)
