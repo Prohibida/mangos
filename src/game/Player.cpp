@@ -1797,12 +1797,12 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
     // if we were on a transport, leave
     if (!(options & TELE_TO_NOT_LEAVE_TRANSPORT) && IsOnTransport())
         GetTransport()->RemovePassenger(this);
-/*
+
     if (GetVehicleKit())
         GetVehicleKit()->RemoveAllPassengers();
 
     ExitVehicle(true);
-*/
+
     // The player was ported to another map and looses the duel immediately.
     // We have to perform this check before the teleport, otherwise the
     // ObjectAccessor won't find the flag.
@@ -1986,21 +1986,18 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
                 oldmap->Remove(this, false);
 
             // new final coordinates
-            float final_x = loc.x;
-            float final_y = loc.y;
-            float final_z = loc.z;
-            float final_o = loc.orientation;
+            WorldLocation final = loc;
 
-            if (m_movementInfo.HasMovementFlag(MOVEFLAG_ONTRANSPORT))
+            if (IsOnTransport())
             {
-                final_x += m_movementInfo.GetTransportPos()->x;
-                final_y += m_movementInfo.GetTransportPos()->y;
-                final_z += m_movementInfo.GetTransportPos()->z;
-                final_o += m_movementInfo.GetTransportPos()->o;
+                final = GetTransport()->GetPosition();
+                final += (*m_movementInfo.GetTransportPos());
             }
+            else
+                final = loc;
 
-            m_teleport_dest = WorldLocation(loc.GetMapId(), final_x, final_y, final_z, final_o);
-            SetFallInformation(0, final_z);
+            m_teleport_dest = final;
+            SetFallInformation(0, final.z);
             // if the player is saved before worldport ack (at logout for example)
             // this will be used instead of the current location in SaveToDB
 
@@ -2022,10 +2019,10 @@ bool Player::TeleportTo(WorldLocation const& loc, uint32 options)
                 }
                 else
                 {
-                    data << float(final_x);
-                    data << float(final_y);
-                    data << float(final_z);
-                    data << float(final_o);
+                    data << float(final.x);
+                    data << float(final.y);
+                    data << float(final.z);
+                    data << float(final.o);
                 }
 
                 GetSession()->SendPacket(&data);

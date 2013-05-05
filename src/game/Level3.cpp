@@ -7591,9 +7591,9 @@ bool ChatHandler::HandleTransportPathCommand(char* args)
             transport->GetTransportKit()->GetPassengers().size(),
             transport->GetCurrent()->first,
             transport->GetCurrent()->second.loc.GetMapId(),
-            transport->GetCurrent()->second.loc.x,
-            transport->GetCurrent()->second.loc.y,
-            transport->GetCurrent()->second.loc.z
+            transport->GetCurrent()->second.loc.getX(),
+            transport->GetCurrent()->second.loc.getY(),
+            transport->GetCurrent()->second.loc.getZ()
         );
     PSendSysMessage("Transport: %s on map %u (%s), %s, passengers "SIZEFMTD", next time %u (map %u xyz %f %f %f)",
             transport->GetObjectGuid().GetString().c_str(), 
@@ -7603,9 +7603,9 @@ bool ChatHandler::HandleTransportPathCommand(char* args)
             transport->GetTransportKit()->GetPassengers().size(),
             transport->GetNext()->first,
             transport->GetNext()->second.loc.GetMapId(),
-            transport->GetNext()->second.loc.x,
-            transport->GetNext()->second.loc.y,
-            transport->GetNext()->second.loc.z
+            transport->GetNext()->second.loc.getX(),
+            transport->GetNext()->second.loc.getY(),
+            transport->GetNext()->second.loc.getZ()
         );
 
     return true;
