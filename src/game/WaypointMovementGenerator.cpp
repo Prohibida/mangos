@@ -27,6 +27,7 @@
 #include "WaypointManager.h"
 #include "WorldPacket.h"
 #include "ScriptMgr.h"
+#include "Transports.h"
 #include "movement/MoveSplineInit.h"
 #include "movement/MoveSpline.h"
 
@@ -386,16 +387,18 @@ bool FlightPathMovementGenerator::GetResetPosition(Player&, float& x, float& y, 
 }
 
 //----------------------------------------------------//
-uint32 TransportPathMovementGenerator::GetPathAtMapEnd() const
+uint32 TransportPathMovementGenerator::GetPathAtMapEnd(bool withAnchorage) const
 {
-    if (i_currentNode >= i_path->size())
+    if (GetCurrentNode() >= i_path->size())
         return i_path->size();
 
-    uint32 curMapId = (*i_path)[i_currentNode].mapid;
+    uint32 curMapId = (*i_path)[GetCurrentNode()].mapid;
 
-    for(uint32 i = i_currentNode; i < i_path->size(); ++i)
+    for(uint32 i = GetCurrentNode(); i < i_path->size(); ++i)
     {
         if ((*i_path)[i].mapid != curMapId)
+            return i;
+        if (withAnchorage && (i > GetCurrentNode()) && ((*i_path)[i].delay > 0))
             return i;
     }
 
@@ -404,6 +407,8 @@ uint32 TransportPathMovementGenerator::GetPathAtMapEnd() const
 
 void TransportPathMovementGenerator::Initialize(GameObject& go)
 {
+    m_anchorageTimer.SetInterval(0);
+    m_anchorageTimer.Reset();
 }
 
 void TransportPathMovementGenerator::Finalize(GameObject& go)
@@ -413,71 +418,136 @@ void TransportPathMovementGenerator::Finalize(GameObject& go)
 
 void TransportPathMovementGenerator::Interrupt(GameObject& go)
 {
+    if (!go.movespline->Finalized())
+    {
+        WorldLocation loc = go.GetPosition();
+        loc = go.movespline->ComputePosition();
+        go.movespline->_Interrupt();
+        static_cast<Transport*>(&go)->SetPosition(loc, false);
+    }
 }
 
 void TransportPathMovementGenerator::Reset(GameObject& go)
 {
     Movement::MoveSplineInit<GameObject*> init(go);
-    uint32 end = GetPathAtMapEnd();
+    uint32 end = GetPathAtMapEnd(true);
     for (uint32 i = GetCurrentNode(); i != end; ++i)
     {
         G3D::Vector3 vertice((*i_path)[i].x,(*i_path)[i].y,(*i_path)[i].z);
         init.Path().push_back(vertice);
     }
     init.SetFirstPointId(GetCurrentNode());
-    init.SetFly();
-    init.SetVelocity(PLAYER_FLIGHT_SPEED);
+    init.SetVelocity(go.GetGOInfo()->moTransport.moveSpeed);
     init.Launch();
+    DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "TransportPathMovementGenerator::Reset %s path resetted, start %u end %u", go.GetObjectGuid().GetString().c_str(), GetCurrentNode(), end);
 }
 
 bool TransportPathMovementGenerator::Update(GameObject& go, uint32 const& diff)
 {
     uint32 pointId = (uint32)go.movespline->currentPathIdx();
-    if (pointId > i_currentNode)
+    bool anchorage = !m_anchorageTimer.Passed();
+    bool movementFinished = go.movespline->Finalized();
+
+    // Normal movement (also arriving to anchorage)
+    if (!anchorage && (pointId > GetCurrentNode()))
     {
-        bool departureEvent = true;
-        do
-        {
-            DoEventIfAny(go,(*i_path)[i_currentNode],departureEvent);
-            if (pointId == i_currentNode)
-                break;
-            i_currentNode += (uint32)departureEvent;
-            departureEvent = !departureEvent;
-        } while(true);
+        DoEventIfAny(go,(*i_path)[GetCurrentNode()], true);
+        MoveToNextNode();
+        DoEventIfAny(go,(*i_path)[GetCurrentNode()], false);
+        if (!movementFinished)
+            return true;
     }
 
-    return !(go.movespline->Finalized() || i_currentNode >= (i_path->size()-1));
-}
-
-void TransportPathMovementGenerator::SetCurrentNodeAfterTeleport()
-{
-    if (i_path->empty())
-        return;
-
-    uint32 map0 = (*i_path)[0].mapid;
-
-    for (size_t i = 1; i < i_path->size(); ++i)
+    // Anchorage delay
+    if (anchorage)
     {
-        if ((*i_path)[i].mapid != map0)
+        m_anchorageTimer.Update(diff);
+        if (m_anchorageTimer.Passed())
         {
-            i_currentNode = i;
-            return;
+            DoEventIfAny(go,(*i_path)[GetCurrentNode()], true);
+            MoveToNextNode();
+            Reset(go);
+            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportPathMovementGenerator::Update %s finish delay movement",go.GetObjectGuid().GetString().c_str());
+            m_anchorageTimer.SetInterval(0);
+            m_anchorageTimer.Reset();
+            return false;
         }
+        return true;
     }
+
+    if (movementFinished && !anchorage)
+    {
+        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "TransportPathMovementGenerator::Update path part finished, %s point %u node %u", go.GetObjectGuid().GetString().c_str(), pointId, GetCurrentNode());
+        bool isPathBreak = IsPathBreak();
+        MoveToNextNode();
+        // End of current path part (teleporting or anchoring coming soon)
+        if ((*i_path)[GetCurrentNode()].delay > 0)
+        {
+            Interrupt(go);
+            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportPathMovementGenerator::Update %s start delay movement to %u",go.GetObjectGuid().GetString().c_str(), (*i_path)[GetCurrentNode()].delay);
+            m_anchorageTimer.SetInterval((*i_path)[GetCurrentNode()].delay * IN_MILLISECONDS);
+            m_anchorageTimer.Reset();
+            return false;
+        }
+        else if (isPathBreak)
+        {
+            Interrupt(go);
+            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "TransportPathMovementGenerator::Update %s point %u node %u - path break (current map %u, next map %u)", go.GetObjectGuid().GetString().c_str(), pointId, GetCurrentNode(), go.GetMapId(), GetCurrentNodeEntry()->mapid);
+            TaxiPathNodeEntry const* nextNode = GetCurrentNodeEntry();
+            WorldLocation newLoc = WorldLocation(nextNode->mapid, nextNode->x, nextNode->y, nextNode->z, go.GetOrientation(), go.GetPhaseMask(), go.GetInstanceId());
+            static_cast<Transport*>(&go)->SetPosition(newLoc, true);
+            Reset(go);
+            return false;
+        }
+        else
+            Reset(go);
+    }
+
+    // FIXME - true after debug stage
+    return false;
 }
 
 void TransportPathMovementGenerator::DoEventIfAny(GameObject& go, TaxiPathNodeEntry const& node, bool departure)
 {
     if (uint32 eventid = departure ? node.departureEventID : node.arrivalEventID)
     {
-        DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "Transport %s event %u of node %u of path %u for GO %s", departure ? "departure" : "arrival", eventid, node.index, node.path, go.GetObjectGuid().GetString().c_str());
-//        StartEvents_Event(player.GetMap(), eventid, &player, &go, departure);
+        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "TransportPathMovementGenerator::DoEventIfAny %s activate taxi %s event %u (node %u)", go.GetGuidStr().c_str(), departure ? "departure" : "arrival", eventid, node.index);
+
+        if (!sScriptMgr.OnProcessEvent(eventid, &go, &go, departure))
+            go.GetMap()->ScriptsStart(sEventScripts, eventid, &go, &go);
     }
 }
 
 bool TransportPathMovementGenerator::GetResetPosition(GameObject& go, float& x, float& y, float& z) const
 {
-    const TaxiPathNodeEntry& node = (*i_path)[i_currentNode];
+    TaxiPathNodeEntry const& node = (*i_path)[i_currentNode];
     x = node.x; y = node.y; z = node.z;
     return true;
+}
+
+TaxiPathNodeEntry const* TransportPathMovementGenerator::GetCurrentNodeEntry() const
+{
+    return &(*i_path)[GetCurrentNode()];
+}
+
+TaxiPathNodeEntry const* TransportPathMovementGenerator::GetNextNodeEntry() const
+{
+    if (i_currentNode >= (i_path->size()-1))
+        return &(*i_path)[0];
+    else
+        return &(*i_path)[GetCurrentNode()+1];
+}
+
+void TransportPathMovementGenerator::MoveToNextNode()
+{
+    if (i_currentNode >= (i_path->size()-1))
+        i_currentNode = 0;
+    else
+        ++i_currentNode;
+}
+
+bool TransportPathMovementGenerator::IsPathBreak() const
+{
+    return GetCurrentNode() >= GetPathAtMapEnd() ||
+        GetCurrentNodeEntry()->mapid !=  GetNextNodeEntry()->mapid;
 }

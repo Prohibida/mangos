@@ -28,6 +28,7 @@
 #include <string>
 
 class TransportKit;
+class TransportPathMovementGenerator;
 
 class MANGOS_DLL_SPEC Transport : public GameObject
 {
@@ -91,14 +92,13 @@ class MANGOS_DLL_SPEC Transport : public GameObject
         WayPointMap::const_iterator GetNext()    { return m_next; }
 
     private:
-        void DoEventIfAny(WayPointMap::value_type const& node, bool departure);
-        void MoveToNextWayPoint();                          // move m_next/m_cur to next points
 
+        void MoveToNextWayPoint();                          // move m_next/m_cur to next points
         void SetPeriod(uint32 time) { SetUInt32Value(GAMEOBJECT_LEVEL, time);}
         uint32 GetPeriod() const { return GetUInt32Value(GAMEOBJECT_LEVEL);}
 
         TransportKit* m_transportKit;
-        IntervalTimer  m_anchorageTimer;
+        TransportPathMovementGenerator* m_moveGen;
 
 };
 

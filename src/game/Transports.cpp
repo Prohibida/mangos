@@ -27,16 +27,20 @@
 #include "DBCStores.h"
 #include "ScriptMgr.h"
 #include "TransportSystem.h"
+#include "WaypointMovementGenerator.h"
 #include "movement/MoveSplineInit.h"
 #include "movement/MoveSpline.h"
 
-Transport::Transport() : GameObject(), m_transportKit(NULL)
+Transport::Transport() : GameObject(), m_transportKit(NULL), m_moveGen(NULL)
 {
     m_updateFlag = (UPDATEFLAG_TRANSPORT | UPDATEFLAG_HIGHGUID | UPDATEFLAG_HAS_POSITION | UPDATEFLAG_ROTATION);
 }
 
 Transport::~Transport()
 {
+    if (m_moveGen)
+        delete m_moveGen;
+
     if (m_transportKit)
         delete m_transportKit;
 }
@@ -87,8 +91,12 @@ bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, 
 
     m_transportKit = new TransportKit(*this);
 
-    m_anchorageTimer.SetInterval(0);
-    m_anchorageTimer.Reset();
+    if (goinfo->moTransport.taxiPathId < sTaxiPathNodesByPath.size())
+    {
+        m_moveGen = new TransportPathMovementGenerator(sTaxiPathNodesByPath[goinfo->moTransport.taxiPathId], 0);
+        MANGOS_ASSERT(m_moveGen);
+        m_moveGen->Initialize(*this);
+    }
 
     return true;
 }
@@ -374,83 +382,40 @@ void Transport::Update(uint32 update_diff, uint32 p_time)
 {
     UpdateSplineMovement(p_time);
 
-    if (!movespline->Finalized())
+//    if (!m_moveGen || m_moveGen->Update(*this, p_time))
+//        return;
+
+    if (!m_moveGen || m_moveGen->Update(*this, update_diff))
         return;
 
     if (m_WayPoints.size() <= 1)
         return;
 
-    bool anchorage = !m_anchorageTimer.Passed();
-    if (anchorage)
-    {
-        m_anchorageTimer.Update(update_diff);
-        if (m_anchorageTimer.Passed())
-        {
-            // TODO - use MovementGenerator instead this
-            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Transport::Update %s start spline movement to %f %f %f",GetObjectGuid().GetString().c_str(), m_next->second.loc.x, m_next->second.loc.y, m_next->second.loc.z);
-            Movement::MoveSplineInit<GameObject*> init(*this);
-            init.MoveTo((Vector3)m_next->second.loc);
-            init.SetVelocity(GetGOInfo()->moTransport.moveSpeed);
-            init.Launch();
-
-            m_anchorageTimer.SetInterval(0);
-            m_anchorageTimer.Reset();
-        }
-    }
-
+    // Old method for movement calculation - used for create correctives
     m_timer = WorldTimer::getMSTime() % m_period;
     while (((m_timer - m_curr->first) % m_pathTime) > ((m_next->first - m_curr->first) % m_pathTime))
     {
 
-        // delay detect
-        uint32 delta = abs(m_next->first - m_curr->first);
-        if (delta > 5000)
-        {
-            m_anchorageTimer.SetInterval(delta);
-            m_anchorageTimer.Reset();
-        }
-
-        DoEventIfAny(*m_curr,true);
-
         MoveToNextWayPoint();
 
-        DoEventIfAny(*m_curr,false);
-
-
-        if (SetPosition(m_curr->second.loc, m_curr->second.teleport))
-        {
-            if (!GetTransportKit()->IsInitialized())
-                GetTransportKit()->Initialize();
-            else
-                // Update passenger positions
-                GetTransportKit()->Update(update_diff);
-        }
-        else if (m_curr->second.loc.GetMapId() == m_next->second.loc.GetMapId()
-            && !m_curr->second.teleport
-            && m_anchorageTimer.Passed())
-        {
-            // TODO - use MovementGenerator instead this
-            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"Transport::Update %s start spline movement to %f %f %f",GetObjectGuid().GetString().c_str(), m_next->second.loc.x, m_next->second.loc.y, m_next->second.loc.z);
-            Movement::MoveSplineInit<GameObject*> init(*this);
-            init.MoveTo((Vector3)m_next->second.loc);
-            init.SetVelocity(GetGOInfo()->moTransport.moveSpeed);
-            init.Launch();
-        }
-
         m_nextNodeTime = m_curr->first;
-
-        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::Update %s moved to %f %f %f %d %s", GetObjectGuid().GetString().c_str(), m_curr->second.loc.x, m_curr->second.loc.y, m_curr->second.loc.z, m_curr->second.loc.GetMapId(), m_curr == m_WayPoints.begin() ? "begin move" : "");
-    }
-}
-
-void Transport::DoEventIfAny(WayPointMap::value_type const& node, bool departure)
-{
-    if (uint32 eventid = departure ? node.second.departureEventID : node.second.arrivalEventID)
-    {
-        DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::DoEventIfAny %s activate taxi %s event %u (node %u)", GetGuidStr().c_str(), departure ? "departure" : "arrival", eventid, node.first);
-
-        if (!sScriptMgr.OnProcessEvent(eventid, this, this, departure))
-            GetMap()->ScriptsStart(sEventScripts, eventid, this, this);
+        float distance = m_curr->second.loc.GetMapId() == GetMapId() ? GetDistance(m_curr->second.loc) : DEFAULT_VISIBILITY_DISTANCE + 1.0f;
+        if (distance > DEFAULT_VISIBILITY_DISTANCE / 2.0)
+        {
+            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::Update %s must be moved to %f %f %f %d %s, but really in %f %f %f %d, distance=%f",
+                GetObjectGuid().GetString().c_str(), m_curr->second.loc.x, m_curr->second.loc.y, m_curr->second.loc.z, m_curr->second.loc.GetMapId(), m_curr == m_WayPoints.begin() ? "(begin move)" : "",
+                GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId(), distance
+                );
+            m_moveGen->Interrupt(*this);
+            if (SetPosition(m_curr->second.loc, m_curr->second.teleport))
+            {
+                if (!GetTransportKit()->IsInitialized())
+                    GetTransportKit()->Initialize();
+                else
+                // Update passenger positions
+                    GetTransportKit()->Update(update_diff);
+            }
+        }
     }
 }
 
@@ -502,13 +467,16 @@ bool Transport::IsSpawnedAtDifficulty(uint32 entry, Difficulty difficulty)
 
 void Transport::Start()
 {
-    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::StartMovement %s (%s) start moves, period %u/%u",
+    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::StartMovement %s (%s) start moves, period %u/%u %s",
         GetObjectGuid().GetString().c_str(),
         GetName(),
         m_pathTime,
-        GetPeriod()
+        GetPeriod(),
+        m_moveGen ? "with generator" : ""
         );
     SetActiveObjectState(true);
+    if (m_moveGen)
+        m_moveGen->Reset(*this);
     BuildStartMovePacket(GetMap());
 }
 
@@ -520,6 +488,8 @@ void Transport::Stop()
         m_pathTime,
         GetPeriod()
         );
+    if (m_moveGen)
+        m_moveGen->Interrupt(*this);
     SetActiveObjectState(false);
     BuildStopMovePacket(GetMap());
 }
@@ -568,7 +538,7 @@ bool Transport::SetPosition(WorldLocation const& loc, bool teleport)
                 GetTransportKit()->CallForAllPassengers(NotifyMapChangeEnd(newMap,loc));
             }
 
-            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::SetPosition %s teleported to (%f, %f, %f, %f)", GetObjectGuid().GetString().c_str(), loc.x, loc.y, loc.z, loc.orientation);
+            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::SetPosition %s teleported from map %u to map %u (%f, %f, %f, %f)", GetObjectGuid().GetString().c_str(), oldMap->GetId(), newMap->GetId(), loc.x, loc.y, loc.z, loc.orientation);
         }
         else if (!(GetPosition() == loc))
             GetMap()->Relocation((GameObject*)this, loc);

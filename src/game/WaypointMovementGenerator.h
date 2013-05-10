@@ -153,6 +153,7 @@ class MANGOS_DLL_SPEC TransportPathMovementGenerator
             i_path = &pathnodes;
             i_currentNode = startNode;
         }
+
         virtual void Initialize(GameObject &go);
         virtual void Finalize(GameObject &go);
         virtual void Interrupt(GameObject &go);
@@ -162,12 +163,17 @@ class MANGOS_DLL_SPEC TransportPathMovementGenerator
         MovementGeneratorType GetMovementGeneratorType() const { return FLIGHT_MOTION_TYPE; }
 
         TaxiPathNodeList const& GetPath() { return *i_path; }
-        uint32 GetPathAtMapEnd() const;
+        uint32 GetPathAtMapEnd(bool withAnchorage = false) const;
         bool HasArrived() const { return (i_currentNode >= i_path->size()); }
-        void SetCurrentNodeAfterTeleport();
-        void SkipCurrentNode() { ++i_currentNode; }
+        void MoveToNextNode();
         void DoEventIfAny(GameObject& go, TaxiPathNodeEntry const& node, bool departure);
         bool GetResetPosition(GameObject& go, float& x, float& y, float& z) const;
+        TaxiPathNodeEntry const* GetCurrentNodeEntry() const;
+        TaxiPathNodeEntry const* GetNextNodeEntry() const;
+        bool IsPathBreak() const;
+
+    private:
+        IntervalTimer   m_anchorageTimer;
 };
 
 #endif
