@@ -272,7 +272,7 @@ bool DynamicMapTree::isInLineOfSight(float x1, float y1, float z1, float x2, flo
 
     // search for intersect only one surface (may appears if method called for check
     // LOS for objects, placed into other objects (cast "in GO" for example)
-    // ONLY FOR TESTING! MAY HEAVILY INCREASE CPU USAGE! /dev/rsa
+    // MAY HEAVILY INCREASE CPU USAGE! /dev/rsa
     bool result = !callback.did_hit;
     if (!result && sWorld.getConfig(CONFIG_BOOL_DYNAMIC_VMAP_DOUBLE_CHECK))
     {
