@@ -10044,15 +10044,15 @@ void ObjectMgr::LoadTransports()
     {
         bar.step();
 
-        Transport *t = new Transport;
+        Transport* t = new Transport;
 
         Field *fields = result->Fetch();
 
         uint32 entry = fields[0].GetUInt32();
         std::string name = fields[1].GetCppString();
-        t->m_period = fields[2].GetUInt32();
+        uint32 period = fields[2].GetUInt32();
 
-        const GameObjectInfo *goinfo = ObjectMgr::GetGameObjectInfo(entry);
+        GameObjectInfo const* goinfo = ObjectMgr::GetGameObjectInfo(entry);
 
         if(!goinfo)
         {
@@ -10070,41 +10070,22 @@ void ObjectMgr::LoadTransports()
 
         DEBUG_LOG("Loading transport %u between %s, %s transport map id %u", entry, name.c_str(), goinfo->name, goinfo->moTransport.mapID);
 
-        std::set<uint32> mapsUsed;
-
-        if(!t->GenerateWaypoints(goinfo->moTransport.taxiPathId, mapsUsed))
-            // skip transports with empty waypoints list
-        {
-            sLog.outErrorDb("Transport (path id %u) path size = 0. Transport ignored, check DBC files or transport GO data0 field.",goinfo->moTransport.taxiPathId);
-            delete t;
-            continue;
-        }
-
-        WorldLocation loc = t->m_WayPoints[0].loc;
-
-        //current code does not support transports in dungeon!
-        const MapEntry* pMapInfo = sMapStore.LookupEntry(loc.GetMapId());
-        if(!pMapInfo || pMapInfo->Instanceable())
+        //If we someday decide to use the grid to track transports, here:
+        Map* map = sMapMgr.CreateMap(Transport::GetPossibleMapByEntry(entry), t);
+        if (!map)
         {
             delete t;
             continue;
         }
 
         // creates the Gameobject
-        if (!t->Create(entry, loc.GetMapId(), loc.x, loc.y, loc.z, loc.o, GO_ANIMPROGRESS_DEFAULT, GO_DYNFLAG_LO_NONE))
+        if (!t->Create(entry, map, period, GO_ANIMPROGRESS_DEFAULT, GO_DYNFLAG_LO_NONE))
         {
             delete t;
             continue;
         }
 
         m_Transports.insert(t);
-
-        //If we someday decide to use the grid to track transports, here:
-        Map* map = sMapMgr.CreateMap(loc.GetMapId(), t);
-        t->SetMap(map);
-        map->Relocation((GameObject*)t, loc);
-        map->Add((GameObject*)t);
-        t->Start();
 
         ++count;
     } while(result->NextRow());
@@ -10183,48 +10164,39 @@ void ObjectMgr::LoadTransports(Map* map)
         if (Transport::GetPossibleMapByEntry(entry, true) != map->GetId() || !Transport::IsSpawnedAtDifficulty(entry, map->GetDifficulty()))
             continue;
 
-        ++count;
-/*
-        if (Transport* transport = Transport::Load(this, entry, name, period))
+        GameObjectInfo const* goinfo = ObjectMgr::GetGameObjectInfo(entry);
+
+        if (!goinfo)
         {
-            if (transport->GetGoState() == GO_STATE_READY)
-                transport->Start();
-            Add<GameObject>(transport);
-            DEBUG_LOG("Map::LoadTransports Loading %s %s, %s, transport map id %u",
-                transport->GetObjectGuid().GetString().c_str(),
-                transport->GetGOInfo()->name,
-                name.c_str(),
-                transport->GetGOInfo()->moTransport.mapID);
-                DEBUG_LOG("Map::LoadTransports guid %u coords %f %f %f",
-                transport->GetObjectGuid().GetRawValue(),
-                transport->GetPositionX(),
-                transport->GetPositionY(),
-                transport->GetPositionZ());
+            sLog.outErrorDb("Transport ID:%u, Name: %s, will not be loaded, gameobject_template missing", entry, name.c_str());
+            continue;
         }
-*/
+
+        if (goinfo->type != GAMEOBJECT_TYPE_MO_TRANSPORT)
+        {
+            sLog.outErrorDb("Transport ID:%u, Name: %s, will not be loaded, gameobject_template type wrong", entry, name.c_str());
+            continue;
+        }
+
+        Transport* transport = new Transport;
+
+        // creates the Gameobject
+        if (!transport->Create(entry, map, period, GO_ANIMPROGRESS_DEFAULT, GO_DYNFLAG_LO_NONE))
+        {
+            delete transport;
+            continue;
+        }
+
+        DEBUG_LOG("Loading transport %u between %s, %s transport map id %u", entry, name.c_str(), goinfo->name, goinfo->moTransport.mapID);
+
+        ++count;
     } while(result->NextRow());
 
     delete result;
 
     if (count > 0)
-       DETAIL_LOG( "Map::LoadTransports Loaded %u transports for map %u instance %u", count, map->GetId(), map->GetInstanceId() );
+       DETAIL_LOG("Map::LoadTransports Loaded %u transports for map %u instance %u", count, map->GetId(), map->GetInstanceId() );
 
-    // check transport data DB integrity
-    result = WorldDatabase.PQuery("SELECT gameobject.guid,gameobject.id,transports.name FROM gameobject,transports WHERE gameobject.id = transports.entry AND gameobject.map = %u",map->GetId());
-    if(result)                                              // wrong data found
-    {
-        do
-        {
-            Field *fields = result->Fetch();
-
-            uint32 guid  = fields[0].GetUInt32();
-            uint32 entry = fields[1].GetUInt32();
-            std::string name = fields[2].GetCppString();
-            sLog.outErrorDb("Map::LoadTransportsTransport %u '%s' have record (GUID: %u) in `gameobject`. Transports DON'T must have any records in `gameobject` or its behavior will be unpredictable/bugged.",entry,name.c_str(),guid);
-        }
-        while(result->NextRow());
-        delete result;
-    }
 }
 
 void ObjectMgr::LoadOpcodes()

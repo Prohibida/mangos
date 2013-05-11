@@ -39,8 +39,10 @@ class MANGOS_DLL_SPEC Transport : public GameObject
         static uint32 GetPossibleMapByEntry(uint32 entry, bool start = true);
         static bool   IsSpawnedAtDifficulty(uint32 entry, Difficulty difficulty);
 
-        bool Create(uint32 guidlow, uint32 mapid, float x, float y, float z, float ang, uint8 animprogress, uint16 dynamicHighValue);
-        bool GenerateWaypoints(uint32 pathid, std::set<uint32> &mapids);
+        void SetPeriod(uint32 time) { SetUInt32Value(GAMEOBJECT_LEVEL, time);}
+        uint32 GetPeriod() const { return GetUInt32Value(GAMEOBJECT_LEVEL);}
+
+        bool Create(uint32 guidlow, Map* map, uint32 period, uint8 animprogress, uint16 dynamicHighValue);
         void Update(uint32 update_diff, uint32 p_time) override;
 
         bool SetPosition(WorldLocation const& loc, bool teleport);
@@ -61,41 +63,10 @@ class MANGOS_DLL_SPEC Transport : public GameObject
         virtual bool IsTransport() const override { return bool(m_transportKit); };
         TransportBase* GetTransportBase() { return (TransportBase*)m_transportKit; };
 
-    private:
-        struct WayPoint
-        {
-            WayPoint() : loc(WorldLocation()), teleport(false) {}
-            WayPoint(uint32 _mapid, float _x, float _y, float _z, bool _teleport, uint32 _arrivalEventID = 0, uint32 _departureEventID = 0)
-                : loc(_mapid, _x, _y, _z, 0.0f), teleport(_teleport),
-                arrivalEventID(_arrivalEventID), departureEventID(_departureEventID)
-            {
-            }
-            WorldLocation loc;
-            bool teleport;
-            uint32 arrivalEventID;
-            uint32 departureEventID;
-        };
-
-        typedef std::map<uint32, WayPoint> WayPointMap;
-
-        WayPointMap::const_iterator m_curr;
-        WayPointMap::const_iterator m_next;
-        uint32 m_pathTime;
-        uint32 m_timer;
-
-    public:
-        WayPointMap m_WayPoints;
-        uint32 m_nextNodeTime;
-        uint32 m_period;
-
-        WayPointMap::const_iterator GetCurrent() { return m_curr; }
-        WayPointMap::const_iterator GetNext()    { return m_next; }
+        TransportPathMovementGenerator const*  CurrentMovementGenerator() const { return m_moveGen; };
 
     private:
-
         void MoveToNextWayPoint();                          // move m_next/m_cur to next points
-        void SetPeriod(uint32 time) { SetUInt32Value(GAMEOBJECT_LEVEL, time);}
-        uint32 GetPeriod() const { return GetUInt32Value(GAMEOBJECT_LEVEL);}
 
         TransportKit* m_transportKit;
         TransportPathMovementGenerator* m_moveGen;

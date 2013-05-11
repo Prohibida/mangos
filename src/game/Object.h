@@ -587,7 +587,8 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         float GetExactDist2d(const float x, const float y) const
         { return sqrt(GetExactDist2dSq(x, y)); }
 
-        float GetAngle( const WorldObject* obj ) const;
+        float GetAngle(Position const& pos) const;
+        float GetAngle(WorldObject const* obj ) const;
         float GetAngle( const float x, const float y ) const;
         bool HasInArc( const float arcangle, const WorldObject* obj ) const;
         bool isInFrontInMap(WorldObject const* target,float distance, float arc = M_PI) const;

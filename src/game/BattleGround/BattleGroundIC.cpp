@@ -795,27 +795,12 @@ Transport* BattleGroundIC::CreateTransport(uint32 goEntry, uint32 period)
         return NULL;
     }
 
-    std::set<uint32> mapsUsed;
-    t->m_period = period;
-
-    if (!t->GenerateWaypoints(goinfo->moTransport.taxiPathId, mapsUsed))
-        // skip transports with empty waypoints list
-    {
-        sLog.outErrorDb("Transport (path id %u) path size = 0. Transport ignored, check DBC files or transport GO data0 field.",goinfo->moTransport.taxiPathId);
-        delete t;
-        return NULL;
-    }
-
-    WorldLocation const& loc = t->m_WayPoints[0].loc;
-
     // creates the Gameobject
-    if (!t->Create(goEntry, loc.GetMapId(), loc.x, loc.y, loc.z, loc.o, GO_ANIMPROGRESS_DEFAULT, 0))
+    if (!t->Create(goEntry, GetBgMap(), period, GO_ANIMPROGRESS_DEFAULT, 0))
     {
         delete t;
         return NULL;
     }
-
-    t->SetMap(GetBgMap());
 
     return t;
 }

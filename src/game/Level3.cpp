@@ -40,8 +40,9 @@
 #include "GridNotifiersImpl.h"
 #include "CellImpl.h"
 #include "Weather.h"
-#include "PointMovementGenerator.h"
 #include "PathFinder.h"
+#include "PointMovementGenerator.h"
+#include "WaypointMovementGenerator.h"
 #include "TargetedMovementGenerator.h"
 #include "HomeMovementGenerator.h"
 #include "SystemConfig.h"
@@ -7589,11 +7590,11 @@ bool ChatHandler::HandleTransportPathCommand(char* args)
             transport->GetName(),
             transport->isActiveObject() ? "active" : "passive",
             transport->GetTransportKit()->GetPassengers().size(),
-            transport->GetCurrent()->first,
-            transport->GetCurrent()->second.loc.GetMapId(),
-            transport->GetCurrent()->second.loc.getX(),
-            transport->GetCurrent()->second.loc.getY(),
-            transport->GetCurrent()->second.loc.getZ()
+            transport->CurrentMovementGenerator()->GetCurrent()->first,
+            transport->CurrentMovementGenerator()->GetCurrent()->second.loc.GetMapId(),
+            transport->CurrentMovementGenerator()->GetCurrent()->second.loc.getX(),
+            transport->CurrentMovementGenerator()->GetCurrent()->second.loc.getY(),
+            transport->CurrentMovementGenerator()->GetCurrent()->second.loc.getZ()
         );
     PSendSysMessage("Transport: %s on map %u (%s), %s, passengers "SIZEFMTD", next time %u (map %u xyz %f %f %f)",
             transport->GetObjectGuid().GetString().c_str(), 
@@ -7601,11 +7602,11 @@ bool ChatHandler::HandleTransportPathCommand(char* args)
             transport->GetName(),
             transport->isActiveObject() ? "active" : "passive",
             transport->GetTransportKit()->GetPassengers().size(),
-            transport->GetNext()->first,
-            transport->GetNext()->second.loc.GetMapId(),
-            transport->GetNext()->second.loc.getX(),
-            transport->GetNext()->second.loc.getY(),
-            transport->GetNext()->second.loc.getZ()
+            transport->CurrentMovementGenerator()->GetNext()->first,
+            transport->CurrentMovementGenerator()->GetNext()->second.loc.GetMapId(),
+            transport->CurrentMovementGenerator()->GetNext()->second.loc.getX(),
+            transport->CurrentMovementGenerator()->GetNext()->second.loc.getY(),
+            transport->CurrentMovementGenerator()->GetNext()->second.loc.getZ()
         );
 
     return true;

@@ -104,7 +104,8 @@ Map::Map(uint32 id, time_t expiry, uint32 InstanceId, uint8 SpawnMode)
     MapPersistentState* persistentState = sMapPersistentStateMgr.AddPersistentState(i_mapEntry, GetInstanceId(), GetDifficulty(), 0, IsDungeon());
     persistentState->SetUsedByMapState(this);
     SetBroken(false);
-    //sObjectMgr.LoadTransports(this);
+    if (GetInstanceId() && !sMapMgr.IsTransportMap(GetId()))
+        sObjectMgr.LoadTransports(this);
 }
 
 MapPersistentState* Map::GetPersistentState() const
@@ -1052,6 +1053,9 @@ void Map::UnloadAll(bool pForce)
         ++i;
         UnloadGrid(grid.getX(), grid.getY(), pForce);       // deletes the grid and removes it from the GridRefManager
     }
+
+    //if (GetInstanceId() && !sMapMgr.IsTransportMap(GetId))
+    //    sObjectMgr.UnLoadTransports(this);
 }
 
 void Map::AddLoadingObject(LoadingObjectQueueMember* obj)

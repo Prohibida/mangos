@@ -1366,6 +1366,11 @@ bool WorldObject::IsInBetween(const WorldObject *obj1, const WorldObject *obj2, 
     return abs(sin(angle)) * GetExactDist2d(obj1->GetPositionX(), obj1->GetPositionY()) < size;
 }
 
+float WorldObject::GetAngle(Position const& pos) const
+{
+    return GetAngle(pos.getX(), pos.getY());
+}
+
 float WorldObject::GetAngle(const WorldObject* obj) const
 {
     if (!obj)

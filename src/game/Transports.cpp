@@ -45,49 +45,39 @@ Transport::~Transport()
         delete m_transportKit;
 }
 
-bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, float ang, uint8 animprogress, uint16 dynamicLowValue)
+bool Transport::Create(uint32 guidlow, Map* map, uint32 period, uint8 animprogress, uint16 dynamicLowValue)
 {
-    Relocate(WorldLocation(mapid, x, y, z, ang));
-    // FIXME - instance id and phaseMask isn't set to values different from std.
-
-    if(!IsPositionValid())
-    {
-        sLog.outError("Transport (GUID: %u) not created. Suggested coordinates isn't valid (X: %f Y: %f)",
-            guidlow,x,y);
+    if (!map)
         return false;
-    }
-
-    Object::_Create(ObjectGuid(HIGHGUID_MO_TRANSPORT, guidlow));
 
     GameObjectInfo const* goinfo = ObjectMgr::GetGameObjectInfo(guidlow);
 
     if (!goinfo)
     {
-        sLog.outErrorDb("Transport not created: entry in `gameobject_template` not found, guidlow: %u map: %u  (X: %f Y: %f Z: %f) ang: %f",guidlow, mapid, x, y, z, ang);
+        sLog.outErrorDb("Transport not created: entry in `gameobject_template` not found, guidlow: %u map: %u ",guidlow, map->GetId());
         return false;
     }
-
     m_goInfo = goinfo;
+    Object::_Create(ObjectGuid(HIGHGUID_MO_TRANSPORT, guidlow));
 
     SetObjectScale(goinfo->size);
 
     SetUInt32Value(GAMEOBJECT_FACTION, goinfo->faction);
     //SetUInt32Value(GAMEOBJECT_FLAGS, goinfo->flags);
     SetUInt32Value(GAMEOBJECT_FLAGS, (GO_FLAG_TRANSPORT | GO_FLAG_NODESPAWN));
-    SetUInt32Value(GAMEOBJECT_LEVEL, m_period);
     SetEntry(goinfo->id);
-
     SetDisplayId(goinfo->displayId);
-
     SetGoState(GO_STATE_READY);
     SetGoType(GameobjectTypes(goinfo->type));
     SetGoArtKit(0);
     SetGoAnimProgress(animprogress);
-
+    SetPeriod(period);
     SetUInt16Value(GAMEOBJECT_DYNAMIC, 0, dynamicLowValue);
     SetUInt16Value(GAMEOBJECT_DYNAMIC, 1, 0);
 
     SetName(goinfo->name);
+
+    SetMap(map);
 
     m_transportKit = new TransportKit(*this);
 
@@ -96,254 +86,25 @@ bool Transport::Create(uint32 guidlow, uint32 mapid, float x, float y, float z, 
         m_moveGen = new TransportPathMovementGenerator(sTaxiPathNodesByPath[goinfo->moTransport.taxiPathId], 0);
         MANGOS_ASSERT(m_moveGen);
         m_moveGen->Initialize(*this);
+        // Relocate(WorldLocation(mapid, x, y, z, ang));
+        // FIXME - instance id and phaseMask isn't set to values different from std.
     }
+    // FIXME - instance id and phaseMask isn't set to values different from std.
 
-    return true;
-}
-
-struct keyFrame
-{
-    explicit keyFrame(TaxiPathNodeEntry const& _node) : node(&_node),
-        distSinceStop(-1.0f), distUntilStop(-1.0f), distFromPrev(-1.0f), tFrom(0.0f), tTo(0.0f)
+    if(!IsPositionValid())
     {
-    }
-
-    TaxiPathNodeEntry const* node;
-
-    float distSinceStop;
-    float distUntilStop;
-    float distFromPrev;
-    float tFrom, tTo;
-};
-
-bool Transport::GenerateWaypoints(uint32 pathid, std::set<uint32> &mapids)
-{
-    if (pathid >= sTaxiPathNodesByPath.size())
+        sLog.outError("Transport %s not created. Suggested coordinates isn't valid (%f, %f, %f, map %u)",
+            GetObjectGuid().GetString().c_str(), GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId());
         return false;
-
-    TaxiPathNodeList const& path = sTaxiPathNodesByPath[pathid];
-
-    std::vector<keyFrame> keyFrames;
-    int mapChange = 0;
-    mapids.clear();
-    for (size_t i = 1; i < path.size() - 1; ++i)
-    {
-        if (mapChange == 0)
-        {
-            TaxiPathNodeEntry const& node_i = path[i];
-            if (node_i.mapid == path[i+1].mapid)
-            {
-                keyFrame k(node_i);
-                keyFrames.push_back(k);
-                mapids.insert(k.node->mapid);
-            }
-            else
-            {
-                mapChange = 1;
-            }
-        }
-        else
-        {
-            --mapChange;
-        }
     }
+    map->Add((GameObject*)this);
 
-    int lastStop = -1;
-    int firstStop = -1;
-
-    // first cell is arrived at by teleportation :S
-    keyFrames[0].distFromPrev = 0;
-    if (keyFrames[0].node->actionFlag == 2)
-    {
-        lastStop = 0;
-    }
-
-    // find the rest of the distances between key points
-    for (size_t i = 1; i < keyFrames.size(); ++i)
-    {
-        if ((keyFrames[i].node->actionFlag == 1) || (keyFrames[i].node->mapid != keyFrames[i-1].node->mapid))
-        {
-            keyFrames[i].distFromPrev = 0;
-        }
-        else
-        {
-            keyFrames[i].distFromPrev =
-                sqrt(pow(keyFrames[i].node->x - keyFrames[i - 1].node->x, 2) +
-                    pow(keyFrames[i].node->y - keyFrames[i - 1].node->y, 2) +
-                    pow(keyFrames[i].node->z - keyFrames[i - 1].node->z, 2));
-        }
-        if (keyFrames[i].node->actionFlag == 2)
-        {
-            // remember first stop frame
-            if(firstStop == -1)
-                firstStop = i;
-            lastStop = i;
-        }
-    }
-
-    float tmpDist = 0;
-    for (size_t i = 0; i < keyFrames.size(); ++i)
-    {
-        int j = (i + lastStop) % keyFrames.size();
-        if (keyFrames[j].node->actionFlag == 2)
-            tmpDist = 0;
-        else
-            tmpDist += keyFrames[j].distFromPrev;
-        keyFrames[j].distSinceStop = tmpDist;
-    }
-
-    for (int i = int(keyFrames.size()) - 1; i >= 0; i--)
-    {
-        int j = (i + (firstStop+1)) % keyFrames.size();
-        tmpDist += keyFrames[(j + 1) % keyFrames.size()].distFromPrev;
-        keyFrames[j].distUntilStop = tmpDist;
-        if (keyFrames[j].node->actionFlag == 2)
-            tmpDist = 0;
-    }
-
-    for (size_t i = 0; i < keyFrames.size(); ++i)
-    {
-        if (keyFrames[i].distSinceStop < (30 * 30 * 0.5f))
-            keyFrames[i].tFrom = sqrt(2 * keyFrames[i].distSinceStop);
-        else
-            keyFrames[i].tFrom = ((keyFrames[i].distSinceStop - (30 * 30 * 0.5f)) / 30) + 30;
-
-        if (keyFrames[i].distUntilStop < (30 * 30 * 0.5f))
-            keyFrames[i].tTo = sqrt(2 * keyFrames[i].distUntilStop);
-        else
-            keyFrames[i].tTo = ((keyFrames[i].distUntilStop - (30 * 30 * 0.5f)) / 30) + 30;
-
-        keyFrames[i].tFrom *= 1000;
-        keyFrames[i].tTo *= 1000;
-    }
-
-    //    for (int i = 0; i < keyFrames.size(); ++i) {
-    //        sLog.outString("%f, %f, %f, %f, %f, %f, %f", keyFrames[i].x, keyFrames[i].y, keyFrames[i].distUntilStop, keyFrames[i].distSinceStop, keyFrames[i].distFromPrev, keyFrames[i].tFrom, keyFrames[i].tTo);
-    //    }
-
-    // Now we're completely set up; we can move along the length of each waypoint at 100 ms intervals
-    // speed = max(30, t) (remember x = 0.5s^2, and when accelerating, a = 1 unit/s^2
-    int t = 0;
-    bool teleport = false;
-    if (keyFrames[keyFrames.size() - 1].node->mapid != keyFrames[0].node->mapid)
-        teleport = true;
-
-    WayPoint pos(keyFrames[0].node->mapid, keyFrames[0].node->x, keyFrames[0].node->y, keyFrames[0].node->z, teleport,
-        keyFrames[0].node->arrivalEventID, keyFrames[0].node->departureEventID);
-    m_WayPoints[0] = pos;
-    t += keyFrames[0].node->delay * 1000;
-
-    uint32 cM = keyFrames[0].node->mapid;
-    for (size_t i = 0; i < keyFrames.size() - 1; ++i)
-    {
-        float d = 0;
-        float tFrom = keyFrames[i].tFrom;
-        float tTo = keyFrames[i].tTo;
-
-        // keep the generation of all these points; we use only a few now, but may need the others later
-        if (((d < keyFrames[i + 1].distFromPrev) && (tTo > 0)))
-        {
-            while ((d < keyFrames[i + 1].distFromPrev) && (tTo > 0))
-            {
-                tFrom += 100;
-                tTo -= 100;
-
-                if (d > 0)
-                {
-                    float newX, newY, newZ;
-                    newX = keyFrames[i].node->x + (keyFrames[i + 1].node->x - keyFrames[i].node->x) * d / keyFrames[i + 1].distFromPrev;
-                    newY = keyFrames[i].node->y + (keyFrames[i + 1].node->y - keyFrames[i].node->y) * d / keyFrames[i + 1].distFromPrev;
-                    newZ = keyFrames[i].node->z + (keyFrames[i + 1].node->z - keyFrames[i].node->z) * d / keyFrames[i + 1].distFromPrev;
-
-                    bool teleport = false;
-                    if (keyFrames[i].node->mapid != cM)
-                    {
-                        teleport = true;
-                        cM = keyFrames[i].node->mapid;
-                    }
-
-                    //                    sLog.outString("T: %d, D: %f, x: %f, y: %f, z: %f", t, d, newX, newY, newZ);
-                    WayPoint pos(keyFrames[i].node->mapid, newX, newY, newZ, teleport);
-                    if (teleport)
-                        m_WayPoints[t] = pos;
-                }
-
-                if (tFrom < tTo)                            // caught in tFrom dock's "gravitational pull"
-                {
-                    if (tFrom <= 30000)
-                    {
-                        d = 0.5f * (tFrom / 1000) * (tFrom / 1000);
-                    }
-                    else
-                    {
-                        d = 0.5f * 30 * 30 + 30 * ((tFrom - 30000) / 1000);
-                    }
-                    d = d - keyFrames[i].distSinceStop;
-                }
-                else
-                {
-                    if (tTo <= 30000)
-                    {
-                        d = 0.5f * (tTo / 1000) * (tTo / 1000);
-                    }
-                    else
-                    {
-                        d = 0.5f * 30 * 30 + 30 * ((tTo - 30000) / 1000);
-                    }
-                    d = keyFrames[i].distUntilStop - d;
-                }
-                t += 100;
-            }
-            t -= 100;
-        }
-
-        if (keyFrames[i + 1].tFrom > keyFrames[i + 1].tTo)
-            t += 100 - ((long)keyFrames[i + 1].tTo % 100);
-        else
-            t += (long)keyFrames[i + 1].tTo % 100;
-
-        bool teleport = false;
-        if ((keyFrames[i + 1].node->actionFlag == 1) || (keyFrames[i + 1].node->mapid != keyFrames[i].node->mapid))
-        {
-            teleport = true;
-            cM = keyFrames[i + 1].node->mapid;
-        }
-
-        WayPoint pos(keyFrames[i + 1].node->mapid, keyFrames[i + 1].node->x, keyFrames[i + 1].node->y, keyFrames[i + 1].node->z, teleport,
-            keyFrames[i + 1].node->arrivalEventID, keyFrames[i + 1].node->departureEventID);
-
-        //        sLog.outString("T: %d, x: %f, y: %f, z: %f, t:%d", t, pos.x, pos.y, pos.z, teleport);
-
-        //if (teleport)
-        m_WayPoints[t] = pos;
-
-        t += keyFrames[i + 1].node->delay * 1000;
-        //        sLog.outString("------");
-    }
-
-    uint32 timer = t;
-
-    //    sLog.outDetail("    Generated %lu waypoints, total time %u.", (unsigned long)m_WayPoints.size(), timer);
-
-    m_next = m_WayPoints.begin();                           // will used in MoveToNextWayPoint for init m_curr
-    MoveToNextWayPoint();                                   // m_curr -> first point
-    MoveToNextWayPoint();                                   // skip first point
-
-    m_pathTime = timer;
-
-    m_nextNodeTime = m_curr->first;
+    if (GetGoState() == GO_STATE_READY)
+        Start();
 
     return true;
 }
 
-void Transport::MoveToNextWayPoint()
-{
-    m_curr = m_next;
-
-    ++m_next;
-    if (m_next == m_WayPoints.end())
-        m_next = m_WayPoints.begin();
-}
 bool Transport::AddPassenger(WorldObject* passenger, Position const& transportPos)
 {
     GetTransportKit()->AddPassenger(passenger, transportPos);
@@ -382,41 +143,10 @@ void Transport::Update(uint32 update_diff, uint32 p_time)
 {
     UpdateSplineMovement(p_time);
 
-//    if (!m_moveGen || m_moveGen->Update(*this, p_time))
-//        return;
-
-    if (!m_moveGen || m_moveGen->Update(*this, update_diff))
+    if (!m_moveGen)
         return;
 
-    if (m_WayPoints.size() <= 1)
-        return;
-
-    // Old method for movement calculation - used for create correctives
-    m_timer = WorldTimer::getMSTime() % m_period;
-    while (((m_timer - m_curr->first) % m_pathTime) > ((m_next->first - m_curr->first) % m_pathTime))
-    {
-
-        MoveToNextWayPoint();
-
-        m_nextNodeTime = m_curr->first;
-        float distance = m_curr->second.loc.GetMapId() == GetMapId() ? GetDistance(m_curr->second.loc) : DEFAULT_VISIBILITY_DISTANCE + 1.0f;
-        if (distance > DEFAULT_VISIBILITY_DISTANCE / 2.0)
-        {
-            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::Update %s must be moved to %f %f %f %d %s, but really in %f %f %f %d, distance=%f",
-                GetObjectGuid().GetString().c_str(), m_curr->second.loc.x, m_curr->second.loc.y, m_curr->second.loc.z, m_curr->second.loc.GetMapId(), m_curr == m_WayPoints.begin() ? "(begin move)" : "",
-                GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId(), distance
-                );
-            m_moveGen->Interrupt(*this);
-            if (SetPosition(m_curr->second.loc, m_curr->second.teleport))
-            {
-                if (!GetTransportKit()->IsInitialized())
-                    GetTransportKit()->Initialize();
-                else
-                // Update passenger positions
-                    GetTransportKit()->Update(update_diff);
-            }
-        }
-    }
+    m_moveGen->Update(*this, update_diff);
 }
 
 void Transport::BuildStartMovePacket(Map const* targetMap)
@@ -467,10 +197,9 @@ bool Transport::IsSpawnedAtDifficulty(uint32 entry, Difficulty difficulty)
 
 void Transport::Start()
 {
-    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::StartMovement %s (%s) start moves, period %u/%u %s",
+    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::StartMovement %s (%s) start moves, period %u %s",
         GetObjectGuid().GetString().c_str(),
         GetName(),
-        m_pathTime,
         GetPeriod(),
         m_moveGen ? "with generator" : ""
         );
@@ -482,10 +211,9 @@ void Transport::Start()
 
 void Transport::Stop()
 {
-    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::StartMovement %s (%s) stop moves, period %u/%u",
+    DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "Transport::StartMovement %s (%s) stop moves, period %u",
         GetObjectGuid().GetString().c_str(),
         GetName(),
-        m_pathTime,
         GetPeriod()
         );
     if (m_moveGen)

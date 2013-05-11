@@ -394,55 +394,61 @@ uint32 TransportPathMovementGenerator::GetPathAtMapEnd(bool withAnchorage) const
 
     uint32 curMapId = (*i_path)[GetCurrentNode()].mapid;
 
-    for(uint32 i = GetCurrentNode(); i < i_path->size(); ++i)
+    for (uint32 i = GetCurrentNode(); i < i_path->size(); ++i)
     {
         if ((*i_path)[i].mapid != curMapId)
             return i;
-        if (withAnchorage && (i > GetCurrentNode()) && ((*i_path)[i].delay > 0))
-            return i;
+        if (withAnchorage && (i > GetCurrentNode()) && ((*i_path)[i].delay > 0) && ((i +1) < i_path->size()))
+            return (i+1);
     }
 
     return i_path->size();
 }
 
-void TransportPathMovementGenerator::Initialize(GameObject& go)
+void TransportPathMovementGenerator::Initialize(Transport& go)
 {
     m_anchorageTimer.SetInterval(0);
     m_anchorageTimer.Reset();
+    TaxiPathNodeEntry const* nextNode = &(*i_path)[0];
+    WorldLocation newLoc = WorldLocation(nextNode->mapid, nextNode->x, nextNode->y, nextNode->z, go.GetOrientation(), go.GetPhaseMask(), go.GetInstanceId());
+    go.GetMap()->Relocation(((GameObject*)&go), newLoc);
 }
 
-void TransportPathMovementGenerator::Finalize(GameObject& go)
+void TransportPathMovementGenerator::Finalize(Transport& go)
 {
     //go.StopMoving();
 }
 
-void TransportPathMovementGenerator::Interrupt(GameObject& go)
+void TransportPathMovementGenerator::Interrupt(Transport& go)
 {
     if (!go.movespline->Finalized())
     {
         WorldLocation loc = go.GetPosition();
         loc = go.movespline->ComputePosition();
         go.movespline->_Interrupt();
-        static_cast<Transport*>(&go)->SetPosition(loc, false);
+        go.SetPosition(loc, false);
     }
 }
 
-void TransportPathMovementGenerator::Reset(GameObject& go)
+void TransportPathMovementGenerator::Reset(Transport& go)
 {
     Movement::MoveSplineInit<GameObject*> init(go);
     uint32 end = GetPathAtMapEnd(true);
+    G3D::Vector3 vertice(go.GetPosition());
     for (uint32 i = GetCurrentNode(); i != end; ++i)
     {
         G3D::Vector3 vertice((*i_path)[i].x,(*i_path)[i].y,(*i_path)[i].z);
         init.Path().push_back(vertice);
     }
+    //go.SetOrientation();
     init.SetFirstPointId(GetCurrentNode());
     init.SetVelocity(go.GetGOInfo()->moTransport.moveSpeed);
+    init.SetFly();
     init.Launch();
     DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "TransportPathMovementGenerator::Reset %s path resetted, start %u end %u", go.GetObjectGuid().GetString().c_str(), GetCurrentNode(), end);
 }
 
-bool TransportPathMovementGenerator::Update(GameObject& go, uint32 const& diff)
+bool TransportPathMovementGenerator::Update(Transport& go, uint32 const& diff)
 {
     uint32 pointId = (uint32)go.movespline->currentPathIdx();
     bool anchorage = !m_anchorageTimer.Passed();
@@ -465,7 +471,6 @@ bool TransportPathMovementGenerator::Update(GameObject& go, uint32 const& diff)
         if (m_anchorageTimer.Passed())
         {
             DoEventIfAny(go,(*i_path)[GetCurrentNode()], true);
-            MoveToNextNode();
             Reset(go);
             DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportPathMovementGenerator::Update %s finish delay movement",go.GetObjectGuid().GetString().c_str());
             m_anchorageTimer.SetInterval(0);
@@ -479,11 +484,9 @@ bool TransportPathMovementGenerator::Update(GameObject& go, uint32 const& diff)
     {
         DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "TransportPathMovementGenerator::Update path part finished, %s point %u node %u", go.GetObjectGuid().GetString().c_str(), pointId, GetCurrentNode());
         bool isPathBreak = IsPathBreak();
-        MoveToNextNode();
         // End of current path part (teleporting or anchoring coming soon)
         if ((*i_path)[GetCurrentNode()].delay > 0)
         {
-            Interrupt(go);
             DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportPathMovementGenerator::Update %s start delay movement to %u",go.GetObjectGuid().GetString().c_str(), (*i_path)[GetCurrentNode()].delay);
             m_anchorageTimer.SetInterval((*i_path)[GetCurrentNode()].delay * IN_MILLISECONDS);
             m_anchorageTimer.Reset();
@@ -491,23 +494,53 @@ bool TransportPathMovementGenerator::Update(GameObject& go, uint32 const& diff)
         }
         else if (isPathBreak)
         {
-            Interrupt(go);
             DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "TransportPathMovementGenerator::Update %s point %u node %u - path break (current map %u, next map %u)", go.GetObjectGuid().GetString().c_str(), pointId, GetCurrentNode(), go.GetMapId(), GetCurrentNodeEntry()->mapid);
             TaxiPathNodeEntry const* nextNode = GetCurrentNodeEntry();
             WorldLocation newLoc = WorldLocation(nextNode->mapid, nextNode->x, nextNode->y, nextNode->z, go.GetOrientation(), go.GetPhaseMask(), go.GetInstanceId());
-            static_cast<Transport*>(&go)->SetPosition(newLoc, true);
+            go.SetPosition(newLoc, true);
+            MoveToNextNode();
             Reset(go);
             return false;
         }
         else
+        {
+            //MoveToNextNode();
             Reset(go);
+        }
+    }
+
+    // Old method for movement calculation - used for create correctives. FIXME - need remove after found true method for acceleration calculation...
+    uint32 m_timer = WorldTimer::getMSTime() % go.GetPeriod();
+    while (((m_timer - m_curr->first) % m_pathTime) > ((m_next->first - m_curr->first) % m_pathTime))
+    {
+
+        MoveToNextWayPoint();
+
+        float distance = m_curr->second.loc.GetMapId() == go.GetMapId() ? go.GetDistance(m_curr->second.loc) : -1.0f;
+        if (distance < 0.0f || distance > DEFAULT_VISIBILITY_DISTANCE / 2.0)
+        {
+            DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "TransportPathMovementGenerator::Update %s must be moved to %f %f %f %d %s, but really in %f %f %f %d, distance=%f",
+                go.GetObjectGuid().GetString().c_str(), m_curr->second.loc.x, m_curr->second.loc.y, m_curr->second.loc.z, m_curr->second.loc.GetMapId(), m_curr == m_WayPoints.begin() ? "(begin move)" : "",
+                go.GetPositionX(), go.GetPositionY(), go.GetPositionZ(), go.GetMapId(), distance
+                );
+            Interrupt(go);
+            if (go.SetPosition(m_curr->second.loc, m_curr->second.teleport))
+            {
+                if (!go.GetTransportKit()->IsInitialized())
+                    go.GetTransportKit()->Initialize();
+                else
+                // Update passenger positions
+                    go.GetTransportKit()->Update(diff);
+            }
+            Reset(go);
+        }
     }
 
     // FIXME - true after debug stage
     return false;
 }
 
-void TransportPathMovementGenerator::DoEventIfAny(GameObject& go, TaxiPathNodeEntry const& node, bool departure)
+void TransportPathMovementGenerator::DoEventIfAny(Transport& go, TaxiPathNodeEntry const& node, bool departure)
 {
     if (uint32 eventid = departure ? node.departureEventID : node.arrivalEventID)
     {
@@ -516,13 +549,6 @@ void TransportPathMovementGenerator::DoEventIfAny(GameObject& go, TaxiPathNodeEn
         if (!sScriptMgr.OnProcessEvent(eventid, &go, &go, departure))
             go.GetMap()->ScriptsStart(sEventScripts, eventid, &go, &go);
     }
-}
-
-bool TransportPathMovementGenerator::GetResetPosition(GameObject& go, float& x, float& y, float& z) const
-{
-    TaxiPathNodeEntry const& node = (*i_path)[i_currentNode];
-    x = node.x; y = node.y; z = node.z;
-    return true;
 }
 
 TaxiPathNodeEntry const* TransportPathMovementGenerator::GetCurrentNodeEntry() const
@@ -550,4 +576,237 @@ bool TransportPathMovementGenerator::IsPathBreak() const
 {
     return GetCurrentNode() >= GetPathAtMapEnd() ||
         GetCurrentNodeEntry()->mapid !=  GetNextNodeEntry()->mapid;
+}
+
+struct keyFrame
+{
+    explicit keyFrame(TaxiPathNodeEntry const& _node) : node(&_node),
+        distSinceStop(-1.0f), distUntilStop(-1.0f), distFromPrev(-1.0f), tFrom(0.0f), tTo(0.0f)
+    {
+    }
+
+    TaxiPathNodeEntry const* node;
+
+    float distSinceStop;
+    float distUntilStop;
+    float distFromPrev;
+    float tFrom, tTo;
+};
+
+bool TransportPathMovementGenerator::GenerateWaypoints()
+{
+    TaxiPathNodeList const& path = *i_path;
+
+    std::vector<keyFrame> keyFrames;
+    int mapChange = 0;
+    for (size_t i = 1; i < path.size() - 1; ++i)
+    {
+        if (mapChange == 0)
+        {
+            TaxiPathNodeEntry const& node_i = path[i];
+            if (node_i.mapid == path[i+1].mapid)
+            {
+                keyFrame k(node_i);
+                keyFrames.push_back(k);
+            }
+            else
+            {
+                mapChange = 1;
+            }
+        }
+        else
+        {
+            --mapChange;
+        }
+    }
+
+    int lastStop = -1;
+    int firstStop = -1;
+
+    // first cell is arrived at by teleportation :S
+    keyFrames[0].distFromPrev = 0;
+    if (keyFrames[0].node->actionFlag == 2)
+    {
+        lastStop = 0;
+    }
+
+    // find the rest of the distances between key points
+    for (size_t i = 1; i < keyFrames.size(); ++i)
+    {
+        if ((keyFrames[i].node->actionFlag == 1) || (keyFrames[i].node->mapid != keyFrames[i-1].node->mapid))
+        {
+            keyFrames[i].distFromPrev = 0;
+        }
+        else
+        {
+            keyFrames[i].distFromPrev =
+                sqrt(pow(keyFrames[i].node->x - keyFrames[i - 1].node->x, 2) +
+                    pow(keyFrames[i].node->y - keyFrames[i - 1].node->y, 2) +
+                    pow(keyFrames[i].node->z - keyFrames[i - 1].node->z, 2));
+        }
+        if (keyFrames[i].node->actionFlag == 2)
+        {
+            // remember first stop frame
+            if(firstStop == -1)
+                firstStop = i;
+            lastStop = i;
+        }
+    }
+
+    uint32 m_time = 0;
+
+    float tmpDist = 0;
+    for (size_t i = 0; i < keyFrames.size(); ++i)
+    {
+        int j = (i + lastStop) % keyFrames.size();
+        if (keyFrames[j].node->actionFlag == 2)
+            tmpDist = 0;
+        else
+            tmpDist += keyFrames[j].distFromPrev;
+        keyFrames[j].distSinceStop = tmpDist;
+    }
+
+    for (int i = int(keyFrames.size()) - 1; i >= 0; i--)
+    {
+        int j = (i + (firstStop+1)) % keyFrames.size();
+        tmpDist += keyFrames[(j + 1) % keyFrames.size()].distFromPrev;
+        keyFrames[j].distUntilStop = tmpDist;
+        if (keyFrames[j].node->actionFlag == 2)
+            tmpDist = 0;
+    }
+
+    for (size_t i = 0; i < keyFrames.size(); ++i)
+    {
+        if (keyFrames[i].distSinceStop < (30 * 30 * 0.5f))
+            keyFrames[i].tFrom = sqrt(2 * keyFrames[i].distSinceStop);
+        else
+            keyFrames[i].tFrom = ((keyFrames[i].distSinceStop - (30 * 30 * 0.5f)) / 30) + 30;
+
+        if (keyFrames[i].distUntilStop < (30 * 30 * 0.5f))
+            keyFrames[i].tTo = sqrt(2 * keyFrames[i].distUntilStop);
+        else
+            keyFrames[i].tTo = ((keyFrames[i].distUntilStop - (30 * 30 * 0.5f)) / 30) + 30;
+
+        keyFrames[i].tFrom *= IN_MILLISECONDS;
+        keyFrames[i].tTo *= IN_MILLISECONDS;
+    }
+
+    //    for (int i = 0; i < keyFrames.size(); ++i) {
+    //        sLog.outString("%f, %f, %f, %f, %f, %f, %f", keyFrames[i].x, keyFrames[i].y, keyFrames[i].distUntilStop, keyFrames[i].distSinceStop, keyFrames[i].distFromPrev, keyFrames[i].tFrom, keyFrames[i].tTo);
+    //    }
+
+    // Now we're completely set up; we can move along the length of each waypoint at 100 ms intervals
+    // speed = max(30, t) (remember x = 0.5s^2, and when accelerating, a = 1 unit/s^2
+    uint32 t = 0;
+    bool teleport = false;
+    if (keyFrames[keyFrames.size() - 1].node->mapid != keyFrames[0].node->mapid)
+        teleport = true;
+
+    WayPoint pos(keyFrames[0].node->mapid, keyFrames[0].node->x, keyFrames[0].node->y, keyFrames[0].node->z, teleport,
+        keyFrames[0].node->arrivalEventID, keyFrames[0].node->departureEventID);
+    m_WayPoints[0] = pos;
+    t += keyFrames[0].node->delay * IN_MILLISECONDS;
+
+    uint32 cM = keyFrames[0].node->mapid;
+    for (size_t i = 0; i < keyFrames.size() - 1; ++i)
+    {
+        float d = 0;
+        float tFrom = keyFrames[i].tFrom;
+        float tTo = keyFrames[i].tTo;
+
+        // keep the generation of all these points; we use only a few now, but may need the others later
+        if (((d < keyFrames[i + 1].distFromPrev) && (tTo > 0)))
+        {
+            while ((d < keyFrames[i + 1].distFromPrev) && (tTo > 0))
+            {
+                tFrom += 100;
+                tTo -= 100;
+
+                if (d > 0)
+                {
+                    float newX, newY, newZ;
+                    newX = keyFrames[i].node->x + (keyFrames[i + 1].node->x - keyFrames[i].node->x) * d / keyFrames[i + 1].distFromPrev;
+                    newY = keyFrames[i].node->y + (keyFrames[i + 1].node->y - keyFrames[i].node->y) * d / keyFrames[i + 1].distFromPrev;
+                    newZ = keyFrames[i].node->z + (keyFrames[i + 1].node->z - keyFrames[i].node->z) * d / keyFrames[i + 1].distFromPrev;
+
+                    bool teleport = false;
+                    if (keyFrames[i].node->mapid != cM)
+                    {
+                        teleport = true;
+                        cM = keyFrames[i].node->mapid;
+                    }
+
+                    //                    sLog.outString("T: %d, D: %f, x: %f, y: %f, z: %f", t, d, newX, newY, newZ);
+                    WayPoint pos(keyFrames[i].node->mapid, newX, newY, newZ, teleport);
+                    if (teleport)
+                        m_WayPoints[t] = pos;
+                }
+
+                if (tFrom < tTo)                            // caught in tFrom dock's "gravitational pull"
+                {
+                    if (tFrom <= 30000)
+                    {
+                        d = 0.5f * (tFrom / 1000) * (tFrom / 1000);
+                    }
+                    else
+                    {
+                        d = 0.5f * 30 * 30 + 30 * ((tFrom - 30000) / 1000);
+                    }
+                    d = d - keyFrames[i].distSinceStop;
+                }
+                else
+                {
+                    if (tTo <= 30000)
+                    {
+                        d = 0.5f * (tTo / 1000) * (tTo / 1000);
+                    }
+                    else
+                    {
+                        d = 0.5f * 30 * 30 + 30 * ((tTo - 30000) / 1000);
+                    }
+                    d = keyFrames[i].distUntilStop - d;
+                }
+                t += 100;
+            }
+            t -= 100;
+        }
+
+        if (keyFrames[i + 1].tFrom > keyFrames[i + 1].tTo)
+            t += 100 - ((long)keyFrames[i + 1].tTo % 100);
+        else
+            t += (long)keyFrames[i + 1].tTo % 100;
+
+        bool teleport = false;
+        if ((keyFrames[i + 1].node->actionFlag == 1) || (keyFrames[i + 1].node->mapid != keyFrames[i].node->mapid))
+        {
+            teleport = true;
+            cM = keyFrames[i + 1].node->mapid;
+        }
+
+        WayPoint pos(keyFrames[i + 1].node->mapid, keyFrames[i + 1].node->x, keyFrames[i + 1].node->y, keyFrames[i + 1].node->z, teleport,
+            keyFrames[i + 1].node->arrivalEventID, keyFrames[i + 1].node->departureEventID);
+
+        //        sLog.outString("T: %d, x: %f, y: %f, z: %f, t:%d", t, pos.x, pos.y, pos.z, teleport);
+
+        //if (teleport)
+        m_WayPoints[t] = pos;
+
+        t += keyFrames[i + 1].node->delay * IN_MILLISECONDS;
+    }
+    m_pathTime = t;
+    DEBUG_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES, "TransportPathMovementGenerator::GenerateWaypoints %u waypoints generated from %u keyframes, for total time %u", m_WayPoints.size(), keyFrames.size(), m_pathTime);
+
+    m_next = m_WayPoints.begin();                           // will used in MoveToNextWayPoint for init m_curr
+    MoveToNextWayPoint();                                   // m_curr -> first point
+    MoveToNextWayPoint();                                   // skip first point
+
+}
+
+void TransportPathMovementGenerator::MoveToNextWayPoint()
+{
+    m_curr = m_next;
+
+    ++m_next;
+    if (m_next == m_WayPoints.end())
+        m_next = m_WayPoints.begin();
 }
