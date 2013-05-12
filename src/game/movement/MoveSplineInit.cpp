@@ -177,7 +177,6 @@ namespace Movement
 
         if (fabs(args.velocity) < M_NULL_F)
             return 0;
-//            args.velocity = gameobject.GetSpeed();
 
         move_spline.Initialize(args);
         return move_spline.Duration();

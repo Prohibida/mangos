@@ -141,7 +141,7 @@ bool Transport::RemovePassenger(WorldObject* passenger)
 
 void Transport::Update(uint32 update_diff, uint32 p_time)
 {
-    UpdateSplineMovement(p_time);
+    UpdateSplineMovement(update_diff);
 
     if (!m_moveGen)
         return;

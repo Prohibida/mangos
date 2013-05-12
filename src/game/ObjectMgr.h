@@ -847,6 +847,7 @@ class ObjectMgr
 
         void LoadTransports(Map* map);
         void LoadTransports();
+        void UnLoadTransports(Map* map);
         typedef UNORDERED_SET<Transport*> TransportSet;
         TransportSet const& GetTransports() { return m_Transports; };
 

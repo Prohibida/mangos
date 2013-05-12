@@ -172,8 +172,7 @@ ObjectMgr::~ObjectMgr()
             delete[] playerInfo[race][class_].levelInfo;
 
     // free objects
-    for (TransportSet::iterator itr = m_Transports.begin(); itr != m_Transports.end(); ++itr)
-        delete *itr;
+    UnLoadTransports(NULL);
 
     for (GroupMap::iterator itr = mGroupMap.begin(); itr != mGroupMap.end(); ++itr)
         delete itr->second;
@@ -10189,6 +10188,8 @@ void ObjectMgr::LoadTransports(Map* map)
 
         DEBUG_LOG("Loading transport %u between %s, %s transport map id %u", entry, name.c_str(), goinfo->name, goinfo->moTransport.mapID);
 
+        m_Transports.insert(transport);
+
         ++count;
     } while(result->NextRow());
 
@@ -10197,6 +10198,19 @@ void ObjectMgr::LoadTransports(Map* map)
     if (count > 0)
        DETAIL_LOG("Map::LoadTransports Loaded %u transports for map %u instance %u", count, map->GetId(), map->GetInstanceId() );
 
+}
+
+void ObjectMgr::UnLoadTransports(Map* map)
+{
+    // free objects (for any instanced map or all)
+    for (TransportSet::iterator itr = m_Transports.begin(); itr != m_Transports.end(); ++itr)
+    {
+        if (Transport* transport = *itr)
+        {
+            if (!map || transport->GetMap() == map)
+                delete transport;
+        }
+    }
 }
 
 void ObjectMgr::LoadOpcodes()

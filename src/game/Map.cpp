@@ -1054,8 +1054,8 @@ void Map::UnloadAll(bool pForce)
         UnloadGrid(grid.getX(), grid.getY(), pForce);       // deletes the grid and removes it from the GridRefManager
     }
 
-    //if (GetInstanceId() && !sMapMgr.IsTransportMap(GetId))
-    //    sObjectMgr.UnLoadTransports(this);
+    if (GetInstanceId() && !sMapMgr.IsTransportMap(GetId()))
+        sObjectMgr.UnLoadTransports(this);
 }
 
 void Map::AddLoadingObject(LoadingObjectQueueMember* obj)
