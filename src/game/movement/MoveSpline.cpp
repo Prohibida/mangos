@@ -132,15 +132,22 @@ namespace Movement
         const SplineBase::EvaluationMode modes[2] = {SplineBase::ModeLinear, SplineBase::ModeCatmullrom};
         if (args.flags.cyclic)
         {
+            SplineBase::EvaluationMode mode = args.flags.isSmooth() ?  SplineBase::ModeCatmullrom : SplineBase::ModeLinear;
             uint32 cyclic_point = 0;
             // MoveSplineFlag::Enter_Cycle support dropped
             // if (splineflags & SPLINEFLAG_ENTER_CYCLE)
             // cyclic_point = 1;   // shouldn't be modified, came from client
-            spline.init_cyclic_spline(&args.path[0], args.path.size(), modes[args.flags.isSmooth()], cyclic_point);
+            spline.init_cyclic_spline(&args.path[0], args.path.size(), mode, cyclic_point);
         }
         else
         {
-            spline.init_spline(&args.path[0], args.path.size(), modes[args.flags.isSmooth()]);
+            SplineBase::EvaluationMode mode = args.flags.isBezier() ?
+                                                SplineBase::ModeBezier3 :
+                                                (args.flags.isSmooth() ?
+                                                SplineBase::ModeCatmullrom : 
+                                                SplineBase::ModeLinear);
+
+            spline.init_spline(&args.path[0], args.path.size(), mode);
         }
 
         // init spline timestamps

@@ -211,6 +211,7 @@ namespace Movement
             void SetCyclic();
             void SetFall();
             void SetOrientationInversed();
+            void SetBezierPath();
             void SetOrientationFixed(bool enable);
             void SetVelocity(float velocity);
 
@@ -227,6 +228,7 @@ namespace Movement
     inline void MoveSplineInit<GameObject*>::SetFall() { args.flags.EnableFalling();}
     inline void MoveSplineInit<GameObject*>::SetVelocity(float vel) {  args.velocity = vel;}
     inline void MoveSplineInit<GameObject*>::SetOrientationInversed() { args.flags.orientationInversed = true;}
+    inline void MoveSplineInit<GameObject*>::SetBezierPath() { args.flags.EnableBezierPath(); }
     inline void MoveSplineInit<GameObject*>::SetParabolic(float amplitude, float time_shift)
     {
         args.time_perc = time_shift;

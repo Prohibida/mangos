@@ -57,7 +57,7 @@ namespace Movement
                 Unknown7     = 0x02000000,
                 Unknown8     = 0x04000000,
                 OrientationInversed = 0x08000000,
-                Unknown10    = 0x10000000,
+                SmoothGroundPath    = 0x10000000,
                 Unknown11    = 0x20000000,
                 Unknown12    = 0x40000000,
                 Unknown13    = 0x80000000,
@@ -70,8 +70,10 @@ namespace Movement
                 Mask_No_Monster_Move = Mask_Final_Facing | Mask_Animations | Done,
                 // CatmullRom interpolation mode used
                 Mask_CatmullRom = Flying | Catmullrom,
+                // Bezier interpolation mode used (only server-side for now)
+                Mask_Bezier = SmoothGroundPath,
                 // Unused, not suported flags
-                Mask_Unused = No_Spline | Enter_Cycle | Frozen | Unknown7 | Unknown8 | Unknown10 | Unknown11 | Unknown12 | Unknown13,
+                Mask_Unused = No_Spline | Enter_Cycle | Frozen | Unknown7 | Unknown8 | Unknown11 | Unknown12 | Unknown13,
             };
 
             inline uint32& raw() { return *reinterpret_cast<uint32*>(this);}
@@ -83,8 +85,9 @@ namespace Movement
 
             // Constant interface
 
+            bool isBezier() const { return raw() & SmoothGroundPath; }
             bool isSmooth() const { return raw() & Mask_CatmullRom;}
-            bool isLinear() const { return !isSmooth();}
+            bool isLinear() const { return !isSmooth() && !isBezier(); }
             bool isFacing() const { return raw() & Mask_Final_Facing;}
 
             uint8 getAnimationId() const { return animId;}
@@ -109,6 +112,7 @@ namespace Movement
             void EnableFacingTarget()        { raw() = (raw() & ~Mask_Final_Facing)                         | Final_Target;}
             void EnableBoardVehicle()        { raw() = (raw() & ~(Catmullrom | ExitVehicle))                | BoardVehicle; }
             void EnableExitVehicle()         { raw() = (raw() & ~BoardVehicle)                              | ExitVehicle; }
+            void EnableBezierPath()          { raw() = (raw() & ~Mask_CatmullRom)                           | SmoothGroundPath; }
 
             uint8 animId       : 8;
             bool done          : 1;
@@ -131,7 +135,7 @@ namespace Movement
             bool unknown7      : 1;
             bool unknown8      : 1;
             bool orientationInversed : 1;
-            bool unknown10     : 1;
+            bool smoothGroundPath    : 1;
             bool unknown11     : 1;
             bool unknown12     : 1;
             bool unknown13     : 1;

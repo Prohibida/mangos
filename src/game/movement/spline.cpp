@@ -23,37 +23,37 @@
 namespace Movement
 {
 
-    SplineBase::EvaluationMethtod SplineBase::evaluators[SplineBase::ModesEnd] =
+    SplineBase::EvaluationMethod SplineBase::evaluators[SplineBase::ModesEnd] =
     {
         &SplineBase::EvaluateLinear,
         &SplineBase::EvaluateCatmullRom,
         &SplineBase::EvaluateBezier3,
-        (EvaluationMethtod)& SplineBase::UninitializedSpline,
+        (EvaluationMethod)& SplineBase::UninitializedSpline,
     };
 
-    SplineBase::EvaluationMethtod SplineBase::derivative_evaluators[SplineBase::ModesEnd] =
+    SplineBase::EvaluationMethod SplineBase::derivative_evaluators[SplineBase::ModesEnd] =
     {
         &SplineBase::EvaluateDerivativeLinear,
         &SplineBase::EvaluateDerivativeCatmullRom,
         &SplineBase::EvaluateDerivativeBezier3,
-        (EvaluationMethtod)& SplineBase::UninitializedSpline,
+        (EvaluationMethod)& SplineBase::UninitializedSpline,
     };
 
-    SplineBase::SegLenghtMethtod SplineBase::seglengths[SplineBase::ModesEnd] =
+    SplineBase::SegLenghtMethod SplineBase::seglengths[SplineBase::ModesEnd] =
     {
         &SplineBase::SegLengthLinear,
         &SplineBase::SegLengthCatmullRom,
         &SplineBase::SegLengthBezier3,
-        (SegLenghtMethtod)& SplineBase::UninitializedSpline,
+        (SegLenghtMethod)& SplineBase::UninitializedSpline,
     };
 
-    SplineBase::InitMethtod SplineBase::initializers[SplineBase::ModesEnd] =
+    SplineBase::InitMethod SplineBase::initializers[SplineBase::ModesEnd] =
     {
         //&SplineBase::InitLinear,
         &SplineBase::InitCatmullRom,    // we should use catmullrom initializer even for linear mode! (client's internal structure limitation)
         &SplineBase::InitCatmullRom,
         &SplineBase::InitBezier3,
-        (InitMethtod)& SplineBase::UninitializedSpline,
+        (InitMethod)& SplineBase::UninitializedSpline,
     };
 
 ///////////
@@ -271,8 +271,14 @@ namespace Movement
         index_hi = high_index + (cyclic ? 1 : 0);
     }
 
-    void SplineBase::InitBezier3(const Vector3* controls, index_type count, bool /*cyclic*/, index_type /*cyclic_point*/)
+    void SplineBase::InitBezier3(const Vector3* controls, index_type count, bool cyclic, index_type cyclic_point)
     {
+        if (count < 3)
+        {
+            InitLinear(controls, count, cyclic,  cyclic_point);
+            return;
+        }
+
         index_type c = count / 3u * 3u;
         index_type t = c / 3u;
 
