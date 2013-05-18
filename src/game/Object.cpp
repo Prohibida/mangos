@@ -1492,9 +1492,9 @@ void WorldObject::UpdateAllowedPositionZ(float x, float y, float &z) const
             }
             // non fly unit don't must be in air
             // non swim unit must be at ground (mostly speedup, because it don't must be in water and water level check less fast
-            else if (!((Creature const*)this)->CanFly())
+            else if (!((Creature*)this)->CanFly())
             {
-                bool canSwim = ((Creature const*)this)->CanSwim();
+                bool canSwim = ((Creature*)this)->CanSwim();
                 float ground_z = z;
                 float max_z = canSwim
                     ? GetTerrain()->GetWaterOrGroundLevel(x, y, z, &ground_z, !((Unit const*)this)->HasAuraType(SPELL_AURA_WATER_WALK))
@@ -2354,4 +2354,3 @@ TransportBase* WorldObject::GetTransportBase()
 
     return NULL;
 }
-

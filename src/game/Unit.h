@@ -450,7 +450,8 @@ enum UnitState
 
     UNIT_STAT_RUNNING_STATE   = UNIT_STAT_CHASE_MOVE | UNIT_STAT_FLEEING_MOVE | UNIT_STAT_RUNNING,
 
-    UNIT_STAT_ALL_STATE       = 0xFFFFFFFF
+    UNIT_STAT_ALL_STATE       = 0xFFFFFFFF,
+    UNIT_STAT_ALL_DYN_STATES  = UNIT_STAT_ALL_STATE & ~(UNIT_STAT_NO_COMBAT_MOVEMENT | UNIT_STAT_RUNNING | UNIT_STAT_WAYPOINT_PAUSED | UNIT_STAT_IGNORE_PATHFINDING),
 };
 
 enum UnitMoveType
@@ -1648,6 +1649,8 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         bool IsLevitating() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_LEVITATING); }
         bool IsWalking() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_WALK_MODE); }
         bool IsRooted() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_ROOT); }
+        bool IsSwimming() const { return m_movementInfo.HasMovementFlag(MOVEFLAG_SWIMMING); }
+
         virtual void SetRoot(bool enabled) {}
         virtual void SetWaterWalk(bool enabled) {}
 

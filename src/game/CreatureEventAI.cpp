@@ -594,7 +594,7 @@ void CreatureEventAI::ProcessAction(CreatureEventAI_Action const& action, uint32
             Unit* target = GetTargetByType(action.cast.target, pActionInvoker, pAIEventSender, spellId, selectFlags);
             if (!target)
             {
-                sLog.outDebug("CreatureEventAI: NULL target for ACTION_T_CAST creature entry %u casting spell id %u", m_creature->GetEntry(), action.cast.spellId);
+                sLog.outErrorEventAI("NULL target for ACTION_T_CAST creature entry %u casting spell id %u", m_creature->GetEntry(), action.cast.spellId);
                 return;
             }
 
@@ -1078,7 +1078,7 @@ void CreatureEventAI::SummonedCreatureDespawn(Creature* pUnit)
     }
 }
 
-void CreatureEventAI::ReceiveAIEvent(AIEventType eventType, Creature* pSender, Unit* pInvoker)
+void CreatureEventAI::ReceiveAIEvent(AIEventType eventType, Creature* pSender, Unit* pInvoker, uint32 /*miscValue*/)
 {
     if (m_bEmptyList || !pSender)
         return;
