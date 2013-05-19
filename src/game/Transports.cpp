@@ -314,11 +314,15 @@ void TransportKit::Reset()
 
 bool TransportKit::AddPassenger(WorldObject* passenger, Position const& transportPos)
 {
+    // possible requires check for board possibility here and return false
+
     // Calculate passengers local position, if not provided
     BoardPassenger(passenger, transportPos.IsEmpty() ? CalculateBoardingPositionOf(passenger->GetPosition()) : transportPos, -1);
 
     DETAIL_FILTER_LOG(LOG_FILTER_TRANSPORT_MOVES,"TransportKit::AddPassenger %s boarded on %s offset %f %f %f", 
         passenger->GetObjectGuid().GetString().c_str(), GetBase()->GetObjectGuid().GetString().c_str(), transportPos.getX(), transportPos.getY(), transportPos.getZ());
+
+    return true;
 }
 
 void TransportKit::RemovePassenger(WorldObject* passenger)
@@ -330,7 +334,7 @@ void TransportKit::RemovePassenger(WorldObject* passenger)
 }
 
 // Helper function to undo the turning of the vehicle to calculate a relative position of the passenger when boarding
-Position TransportKit::CalculateBoardingPositionOf(Position const& pos) const override
+Position TransportKit::CalculateBoardingPositionOf(Position const& pos) const
 {
     Position l(pos);
     NormalizeRotatedPosition(pos.x - GetBase()->GetPositionX(), pos.y - GetBase()->GetPositionY(), l.x, l.y);
